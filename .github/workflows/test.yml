@@ -1,0 +1,68 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate marketplace and plugins
+        run: |
+          npm i -g @anthropic-ai/claude-code
+          claude plugin validate --strict .
+          for p in plugins/*/; do claude plugin validate --strict "$p"; done
+
+      # Strict YAML: an unquoted ": " in a description breaks some skill loaders.
+      - name: Check SKILL.md headers
+        if: ${{ !cancelled() }}
+        run: |
+          ruby -e '
+            require "yaml"
+            files = Dir["plugins/*/skills/*/SKILL.md"].sort
+            abort "no SKILL.md files found" if files.empty?
+            bad = files.reject do |f|
+              head = File.read(f)[/\A---\n(.*?)^---$/m, 1]
+              meta = head && YAML.safe_load(head)
+              ok = meta.is_a?(Hash) && %w[name description].all? { |k| meta[k].is_a?(String) && !meta[k].strip.empty? }
+              puts "#{ok ? "ok  " : "FAIL"} #{f}"
+              ok
+            rescue Psych::Exception => e
+              puts "FAIL #{f}: #{e.message}"
+              false
+            end
+            exit(bad.empty? ? 0 : 1)
+          '
+
+      # Runs every suite and fails at the end, so one run shows every failure.
+      - name: Test suites
+        if: ${{ !cancelled() }}
+        run: |
+          fail=0
+          suite() {
+            echo "::group::$1"
+            (cd "plugins/$1" && eval "$2") || { echo "::error::$1 failed"; fail=1; }
+            echo "::endgroup::"
+          }
+          for p in agent-chat git-guardrails pr-task-link-guard; do suite "$p" 'node --test tests/*.test.mjs'; done
+          for p in context-nudge integration-branch-qa machine-pressure pr-review-loop; do suite "$p" 'bash tests/run.sh'; done
+          exit $fail
+
+      # storage-reclaim is a macOS tool (APFS volumes, ~/Library); its README marks Linux untested.
+      - name: Test storage-reclaim (macOS only)
+        if: ${{ !cancelled() && runner.os == 'macOS' }}
+        working-directory: plugins/storage-reclaim
+        run: bash tests/run.sh
