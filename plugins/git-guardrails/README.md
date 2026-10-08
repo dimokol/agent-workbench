@@ -1,6 +1,6 @@
 # git-guardrails
 
-Your agents can't merge PRs, push to protected branches, delete remote branches or run history-destroying git until you say so.
+Your agents can't merge PRs, push to protected branches, delete remote branches or run `reset --hard`, `clean -f`, `branch -D` or `stash drop` until you say so. Force pushes to branches that aren't protected pass unless strict is on.
 
 A `PreToolUse` hook reads each Bash command the way a shell would (quotes, line continuations, `$(...)`, heredocs, `sh -c`) and denies the risky ones with a reason the agent can act on. Treat it as a speed bump against mistakes, and don't rely on it as a sandbox: a script or a git alias goes unseen. Turn on `strict` if you can: the agent then has to ask before anything leaves your machine.
 

@@ -1,7 +1,7 @@
 {
   "name": "machine-pressure",
   "version": "0.1.0",
-  "description": "Refuses a second e2e or docker run, and any heavy command while CPU, RAM, swap or disk pressure is RED, plus a statusline script you add by hand.",
+  "description": "Refuses a second e2e or docker run, and any heavy command while CPU, memory or disk pressure is RED, plus a statusline script you add by hand.",
   "author": { "name": "dimokol" },
   "repository": "https://github.com/dimokol/agent-workbench",
   "license": "MIT",

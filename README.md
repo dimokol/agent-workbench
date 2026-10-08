@@ -19,14 +19,17 @@ Then restart Claude Code. `/plugin` lists what you installed (with starter, `/mc
 agent-chat). To see one work, ask "run a health check": worktree-hygiene audits your worktrees and
 disk without changing anything.
 
-Every setting has a default. Change a part's settings with `/plugin configure <part>@dimokol`;
-each part's README lists them. Your own hooks stay as they are. Turn a part off with
-`claude plugin disable <part>@dimokol`.
+Every setting has a default. After install Claude Code may say options are "not yet set". That's
+fine, the defaults apply. Change a part's settings with `/plugin configure <part>@dimokol`; each
+part's README lists them. Your own hooks stay as they are. Turn a part off with
+`claude plugin disable <part>@dimokol`. If you installed starter, run
+`claude plugin disable starter@dimokol` first, because it holds its four parts in place.
 
 Codex, or no plugin system: `curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- --list`
-shows the parts, and `... | bash -s -- <part>` copies one into place and prints any hook or MCP
-snippet for you to paste. For Codex, set the skills folder:
-`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | SKILLS_DIR=~/.codex/skills bash -s -- <part>`.
+shows the parts. To copy one into place, swap `--list` for the part's name:
+`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- git-guardrails`.
+It prints any hook or MCP snippet for you to paste. For Codex, set the skills folder:
+`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | SKILLS_DIR=~/.codex/skills bash -s -- worktree-hygiene`.
 In Codex the skills and agent-chat work; hooks are Claude Code only.
 
 ## Parts
@@ -35,7 +38,7 @@ In Codex the skills and agent-chat work; hooks are Claude Code only.
 |---|---|---|
 | [git-guardrails](plugins/git-guardrails) | Agents can't merge PRs, push to protected branches, delete remote branches or run `reset --hard` unless you said so. Strict mode also gates every commit and push. | hooks |
 | [pr-task-link-guard](plugins/pr-task-link-guard) | `gh pr create` is refused when the body has no link to a task, once you set a task-link pattern. | hook |
-| [machine-pressure](plugins/machine-pressure) | Refuses a second e2e or Docker run, and heavy commands while CPU, RAM, swap or disk is in the red, plus a statusline script you add by hand. | hook, script |
+| [machine-pressure](plugins/machine-pressure) | Refuses a second e2e or Docker run, and heavy commands while CPU, memory or disk is in the red, plus a statusline script you add by hand. | hook, script |
 | [context-nudge](plugins/context-nudge) | One line when a session passes 250k, 400k and 600k tokens, or after an hour idle at 150k or more, so you compact or start fresh. | hook |
 | [worktree-hygiene](plugins/worktree-hygiene) | An audit to run at session start: merged worktrees, idle dependency folders, orphaned dev servers, free disk. Proposes, never deletes. | skill |
 | [storage-reclaim](plugins/storage-reclaim) | Disk cleanup that measures first and won't touch files a process or session is using. macOS. | skill |

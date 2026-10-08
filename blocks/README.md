@@ -14,4 +14,4 @@ Plain-text rules for an agent's instruction file. Global ones go in `~/.claude/C
 
 To fetch one: `curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/blocks/writing-tone.md -o writing-tone.md`, then edit it and paste it in.
 
-Want a stricter rule? Replace the approval bullet in working-agreement.md with: require an explicit go in the latest message before every write, edit, delete or push.
+Want a stricter rule? In working-agreement.md, replace the bullet that starts "For ordinary edits, a clear task request" (under "Ask before anything irreversible") with: require an explicit go in the latest message before every write, edit, delete or push.

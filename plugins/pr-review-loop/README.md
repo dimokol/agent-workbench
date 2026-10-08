@@ -1,6 +1,6 @@
 # pr-review-loop
 
-Run `/pr-review-loop 12 14` and it asks the reviewer once, fixes or answers each finding, reruns your checks and stops when every PR is approved and mergeable. It asks for your go before it pushes, merges only with `--merge`, and `--double-review` adds its own review.
+Run `/pr-review-loop:pr-review-loop 12 14` and it asks the reviewer once, fixes or answers each finding, reruns your checks and stops when every PR is approved and mergeable. It asks for your go before it pushes, merges only with `--merge`, and `--double-review` adds its own review. Asking in plain words ("get these PRs ready") also triggers it.
 
 ## Install
 ```
@@ -8,7 +8,7 @@ claude plugin marketplace add dimokol/agent-workbench
 claude plugin install pr-review-loop@dimokol
 ```
 
-Without the plugin system: copy `skills/pr-review-loop/` into `.claude/skills/` (Codex: `~/.codex/skills/`) and set options as `key: value` lines in a `## pr-review-loop config` block in your CLAUDE.md. The skill reads the plugin setting first, then that block, then the default.
+Without the plugin system: copy `skills/pr-review-loop/` into `.claude/skills/` (Codex: `~/.codex/skills/`); the command is then `/pr-review-loop 12 14`. Set options as `key: value` lines in a `## pr-review-loop config` block in your CLAUDE.md. The skill reads the plugin setting first, then that block, then the default.
 
 ## Config
 | Option | Default | What it does |
