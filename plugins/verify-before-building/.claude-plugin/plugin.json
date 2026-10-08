@@ -1,0 +1,9 @@
+{
+  "name": "verify-before-building",
+  "version": "0.1.0",
+  "description": "Before you start a branch, fetch and check whether the trunk already has the feature, so merged work isn't rebuilt.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["git", "branches", "parallel-agents", "duplicate-work"]
+}

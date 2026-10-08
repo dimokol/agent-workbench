@@ -1,0 +1,17 @@
+{
+  "name": "setup-audit",
+  "version": "0.1.0",
+  "description": "A weekly audit of your Claude Code setup: new changelog entries, community tool changes, and your own drift checks, logged and never applied.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["audit", "changelog", "config-drift", "maintenance", "weekly"],
+  "userConfig": {
+    "audit_dir": {
+      "type": "directory",
+      "title": "Audit folder",
+      "description": "Folder where the audit keeps its log, snapshot and tripwires. The skill writes only here.",
+      "default": "~/.setup-audit"
+    }
+  }
+}
