@@ -52,7 +52,7 @@ and a docs layout.
 
 ## Also worth installing
 
-Other people's work that fits with these parts. Linked, not copied.
+Tools that fit with these parts. Linked, not copied.
 
 | What | Why | Install |
 |---|---|---|
@@ -60,7 +60,14 @@ Other people's work that fits with these parts. Linked, not copied.
 | [mattpocock/skills](https://github.com/mattpocock/skills): grilling, diagnosing-bugs, pr, handoff | Sharp questions before building, a debug loop that starts from a failing repro, PR bodies, handoff notes | `claude plugin install mattpocock-skills`, or one skill: `npx skills add mattpocock/skills --skill grilling` |
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack): unslop, blast-radius, show-me-your-work | Cuts AI tells from writing, finds what a change could break, keeps a decision log | `npx skills add https://github.com/cursor/plugins/tree/main/pstack --skill unslop -a claude-code` (Cursor: `/add-plugin pstack`) |
 | [ccstatusline](https://www.npmjs.com/package/ccstatusline) | A configurable statusline; machine-pressure ships widgets for it | `npm install -g ccstatusline` |
-| [Claude Notifications](https://marketplace.visualstudio.com/items?itemName=dimokol.claude-notifications) | A sound and a banner when any agent finishes, with a click that focuses its VS Code terminal | VS Code marketplace |
+| [claude-notifications](https://github.com/dimokol/claude-notifications) (same author) | A sound and an OS banner when a Claude Code session in a VS Code terminal finishes or needs you. On macOS and Windows a click jumps to that window and terminal tab. | [VS Code marketplace](https://marketplace.visualstudio.com/items?itemName=dimokol.claude-notifications) |
+
+## Credits
+
+- [ccstatusline](https://github.com/sirmalloc/ccstatusline) by sirmalloc draws the statusline that machine-pressure's widgets plug into.
+- [superpowers](https://github.com/obra/superpowers) by Jesse Vincent shaped how these parts were planned, built and reviewed.
+- [mattpocock/skills](https://github.com/mattpocock/skills): its grilling skill settled the design questions, and it has a git-guardrails skill with the same aim as this one.
+- [pstack](https://github.com/cursor/plugins/tree/main/pstack): its unslop skill is the stricter checklist `blocks/writing-tone.md` points to, and its worktree-cleanup is the fuller playbook worktree-hygiene points to.
 
 ## License
 
