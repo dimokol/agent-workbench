@@ -9,7 +9,8 @@ check() { if [ "$2" = ok ]; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
 if ! command -v zsh >/dev/null 2>&1; then echo "zsh not installed, skipping"; exit 0; fi
 
 fake=$(mktemp -d) || exit 1
-trap 'rm -rf "$fake"' EXIT
+: "${fake:?mktemp failed}"
+trap 'rm -rf "${fake:?}"' EXIT
 
 mkdir -p "$fake/Documents/proj/node_modules/pkg" \
          "$fake/Documents/proj/.locks" \

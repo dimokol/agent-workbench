@@ -4,7 +4,8 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 PROBE=$HERE/../scripts/pressure.sh
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+: "${WORK:?mktemp failed}"
+trap 'rm -rf "${WORK:?}"' EXIT
 pass=0; fail=0
 
 ok() { pass=$((pass+1)); echo "  ok    $1"; }
@@ -15,7 +16,7 @@ eq() { # name expected actual
 
 # New sandbox: $BIN with stubs on PATH, $TMPDIR private, defaults for a healthy 8-core 16 GB Mac.
 mkenv() {
-  rm -rf "$WORK/env"; mkdir -p "$WORK/env/bin" "$WORK/env/tmp" "$WORK/env/proc"
+  rm -rf "${WORK:?}/env"; mkdir -p "$WORK/env/bin" "$WORK/env/tmp" "$WORK/env/proc"
   BIN=$WORK/env/bin
   OSNAME=Darwin; LOAD="2.40"; MEMSIZE=17179869184; SWAPLINE="total = 2048.00M  used = 1024.00M  free = 1024.00M  (encrypted)"
   FREEPAGES=100000; INACTIVE=300000; SPEC=24288; PURGE=100000   # 524288 pages = 8192 MB available
@@ -210,7 +211,7 @@ out=$(probe --json)
 eq "linux missing meminfo: ram null" null "$(jf "$out" .ram_pct)"
 eq "linux missing meminfo: not RED" OK "$(jf "$out" .level)"
 mkenv; OSNAME=Linux; write_stubs; rm -f "$BIN/sysctl" "$BIN/vm_stat"; printf '#!/bin/sh\nexit 1\n' > "$BIN/df"
-rm -rf "$WORK/env/proc"
+rm -rf "${WORK:?}/env/proc"
 eq "linux with no /proc and no df is UNKNOWN, never RED" UNKNOWN "$(jf "$(probe --json)" .level)"
 
 echo "== cache =="

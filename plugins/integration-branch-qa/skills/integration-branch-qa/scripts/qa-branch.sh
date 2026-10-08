@@ -22,7 +22,12 @@ usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit "$1"; }
 g() { git -C "$MAIN" "$@"; }
 has_ref() { g rev-parse --verify --quiet "$1" >/dev/null; }
 short() { g rev-parse --short "$1"; }
-mktmp() { mktemp -d "${TMPDIR:-/tmp}/qa-branch.XXXXXX"; }
+# Never prints an empty path: callers rm -rf what it returns.
+mktmp() {
+  local d
+  d=$(mktemp -d "${TMPDIR:-/tmp}/qa-branch.XXXXXX") && [ -n "$d" ] || die "could not create a temp folder"
+  printf '%s\n' "$d"
+}
 fetch() { g fetch --quiet --prune "$REMOTE" 2>/dev/null || warn "fetch from $REMOTE failed; using the refs already here"; }
 pr_num() { local n="${1#\#}"; case "$n" in '' | *[!0-9]*) return 1 ;; esac; printf '%s' "$n"; }
 pass() { printf '  PASS  %s\n' "$*"; }
@@ -97,7 +102,7 @@ covered() {
 stranded() {
   local refs="$BASEREF" b tmp c
   has_ref "refs/heads/$INT" || return 0
-  tmp=$(mktmp)
+  tmp=$(mktmp) || exit 2
   PIDS="$tmp/pids"
   : >"$PIDS"
   for b in $(queue_entries | awk '{ print $2 }'); do
@@ -110,19 +115,19 @@ stranded() {
     # shellcheck disable=SC2086
     covered "$c" $refs || g log -1 --format='%h %s' "$c"
   done
-  rm -rf "$tmp"
+  rm -rf "${tmp:?}"
 }
 
 # Commits on ref $1 whose change is not on the integration branch yet.
 untested() {
   local tmp c
-  tmp=$(mktmp)
+  tmp=$(mktmp) || exit 2
   PIDS="$tmp/pids"
   patch_ids "$BASEREF..$INT" >"$PIDS"
   g rev-list --no-merges "$INT..$1" | while read -r c; do
     covered "$c" "$INT" || g log -1 --format='%h %s' "$c"
   done
-  rm -rf "$tmp"
+  rm -rf "${tmp:?}"
 }
 
 # State of queued branch $1 against the integration branch.
@@ -236,7 +241,7 @@ cmd_remove() {
 }
 
 cmd_rebuild() {
-  local allow="${1:-}" gd f s pr b wt out conflicts
+  local allow="${1:-}" gd f s pr b wt wtdir out conflicts
   [ -f "$QUEUE" ] || die "no $QUEUE; run init first"
   safe_int
   [ ! -f "$LOCK" ] || [ "${QA_BRANCH_ALLOW:-}" = 1 ] ||
@@ -256,7 +261,8 @@ $s"
     die "these commits exist only on $INT and a rebuild would drop them. Carry each to its PR branch, or pass --allow-stranded (they stay on $INT-prev):
 $s"
   # Merge in a throwaway worktree, so the main checkout (and its dev servers) changes once, at the end.
-  wt="$(mktmp)/build"
+  wtdir=$(mktmp) || exit 2
+  wt="$wtdir/build"
   g worktree add --quiet --detach "$wt" "$BASEREF" || die "could not create a build worktree"
   echo "building $INT from $BASEREF $(short "$BASEREF")"
   while read -r pr b; do
@@ -270,7 +276,7 @@ $s"
       continue
     fi
     conflicts=$(git -C "$wt" diff --name-only --diff-filter=U)
-    g worktree remove --force "$wt" && rm -rf "${wt%/build}"
+    g worktree remove --force "$wt" && rm -rf "${wtdir:?}"
     [ -n "$conflicts" ] || die "merging #$pr ($b) failed; nothing changed:
 $out"
     echo "CONFLICT merging #$pr ($b). $INT and the main checkout are unchanged. Conflicted files:"
@@ -281,7 +287,7 @@ $out"
 $(queue_entries)
 EOF
   s=$(git -C "$wt" rev-parse HEAD)
-  g worktree remove --force "$wt" && rm -rf "${wt%/build}"
+  g worktree remove --force "$wt" && rm -rf "${wtdir:?}"
   has_ref "refs/heads/$INT" && g branch -f "$INT-prev" "$INT"
   # --no-track: an upstream would make a bare `git push` send the build to the base branch.
   out=$(g checkout --quiet --no-track -B "$INT" "$s" 2>&1) ||
@@ -362,12 +368,12 @@ cmd_check_pr() {
     CONFLICTING) flag "it conflicts with $base: merge $REMOTE/$base into $b and resolve it there" ;;
     *) printf '  WARN  GitHub mergeability is %s; run check-pr again in a minute\n' "${mergeable:-unknown}" ;;
   esac
-  tmp=$(mktmp)
+  tmp=$(mktmp) || exit 2
   g diff --name-only "$BASEREF...$head" >"$tmp/files" 2>/dev/null
   s=$(stranded | while read -r c _; do
     g show --name-only --format= "$c" | grep -qxF -f "$tmp/files" && g log -1 --format='%h %s' "$c"
   done)
-  rm -rf "$tmp"
+  rm -rf "${tmp:?}"
   if [ -n "$s" ]; then
     flag "stranded fixes on $INT touch this PR's files (carry them to $b first):"
     printf '%s\n' "$s" | sed 's/^/          /'

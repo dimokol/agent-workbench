@@ -14,9 +14,11 @@ GUARD="$ROOT/hooks/qa-branch-guard.sh"
 BASH_BIN=$(command -v bash)
 for t in git jq node curl; do command -v "$t" >/dev/null 2>&1 || { echo "tests need $t"; exit 2; }; done
 T=$(mktemp -d "${TMPDIR:-/tmp}/qa-test.XXXXXX")
-T=$(cd "$T" && pwd -P)
+: "${T:?mktemp failed}"
+T=$(cd "${T:?}" && pwd -P)
+: "${T:?}"
 SERVER_PID=""
-trap '[ -z "$SERVER_PID" ] || kill "$SERVER_PID" 2>/dev/null; rm -rf "$T"' EXIT
+trap '[ -z "$SERVER_PID" ] || kill "$SERVER_PID" 2>/dev/null; rm -rf "${T:?}"' EXIT
 
 # Keep this machine's git config and settings out of the fixtures.
 for v in $(env | sed -n 's/^\(INTEGRATION_BRANCH_QA_[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
@@ -258,6 +260,12 @@ qa remove 2 --force >/dev/null
 out=$(qa status)
 has "status lists PRs merged in but no longer queued" "$out" "no longer queued"
 matches "it names the branch" "$out" '^  feat-b$'
+
+before=$(git -C "$W" rev-parse qa-integration)
+out=$(cd "$W" && TMPDIR="$T/no-such-dir" "$BASH_BIN" "$QA" rebuild 2>&1); code=$?
+is "rebuild stops when it can't make a temp folder" "$code" 2
+has "it says why" "$out" "could not create a temp folder"
+is "and changes nothing" "$(git -C "$W" rev-parse qa-integration)" "$before"
 
 echo "# checklist page"
 (cd "$W" && exec "$BASH_BIN" "$QA" checklist) >"$T/server.log" 2>&1 &

@@ -3,7 +3,8 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 H=$HERE/../hooks/heavy-op-gate.sh
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+: "${WORK:?mktemp failed}"
+trap 'rm -rf "${WORK:?}"' EXIT
 mkdir -p "$WORK/bin" "$WORK/tmp" "$WORK/nojq"
 pass=0; fail=0
 
