@@ -11,7 +11,8 @@
 #   - AMBER pressure: the command runs, with a warning added to the context.
 #
 # Fails open: a missing tool, an unreadable probe or an unknown platform allows
-# the command. Override a single command with a leading PRESSURE_ALLOW=1.
+# the command. Override one command with PRESSURE_ALLOW=1 directly before it
+# (cd app && PRESSURE_ALLOW=1 npm run build), or at the start of the whole line.
 #
 # Settings (CLAUDE_PLUGIN_OPTION_<KEY>, else MACHINE_PRESSURE_<KEY>, else default):
 #   MAX_PARALLEL_HEAVY (1), EXTRA_HEAVY_PATTERNS (empty), IGNORE_RUNNING_PATTERNS (empty).
@@ -50,7 +51,7 @@ input=$(cat 2>/dev/null) || exit 0
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)
 [ -n "$cmd" ] || exit 0
 
-# Override: PRESSURE_ALLOW=1 must be one of the leading VAR=value words.
+# Override for the whole line: PRESSURE_ALLOW=1 among its leading VAR=value words.
 has_override() {
   rest=$1
   while :; do
@@ -147,10 +148,10 @@ classify_line() {
 }
 
 # First heavy command in a chain wins, so a light command earlier in the chain
-# cannot hide a heavy one after it.
+# cannot hide a heavy one after it. A command with its own PRESSURE_ALLOW=1 passes.
 class=""
 while IFS= read -r line; do
-  [ -n "$line" ] || continue
+  case $line in ''|"PRESSURE_ALLOW=1 "*) continue ;; esac
   c=$(classify_line "$line")
   if [ -n "$c" ]; then class=$c; break; fi
 done <<EOF_HEADS
@@ -228,7 +229,7 @@ emit() { # deny|warn, message
   exit 0
 }
 
-tip="To run it anyway, put PRESSURE_ALLOW=1 in front of the command."
+tip="To run it anyway, put PRESSURE_ALLOW=1 directly before the heavy command, after any cd (cd app && PRESSURE_ALLOW=1 npm run build). Each heavy command in a chain needs its own."
 
 if { [ "$class" = e2e ] || [ "$class" = docker ]; } && [ "$running" -ge "$max" ]; then
   emit deny "Blocked: $running $class run(s) already active, and the limit is $max (max_parallel_heavy). Another session or terminal is using the machine for the same job. Wait for it to finish, then retry. Machine: $summary. $tip"

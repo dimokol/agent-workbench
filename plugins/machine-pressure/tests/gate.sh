@@ -67,7 +67,10 @@ set_level RED
 expect_allow "PRESSURE_ALLOW=1 first" 'PRESSURE_ALLOW=1 npm install'
 expect_allow "PRESSURE_ALLOW=1 after another assignment" 'CI=1 PRESSURE_ALLOW=1 npm install'
 expect_deny "token in an echo does not count" 'echo PRESSURE_ALLOW=1; npm install' 'RED'
-expect_deny "token after && does not count" 'cd x && PRESSURE_ALLOW=1 npm install' 'RED'
+expect_allow "token directly before the heavy command, after cd" 'cd x && PRESSURE_ALLOW=1 npm install'
+expect_allow "token after another assignment, after cd" 'cd app && CI=1 PRESSURE_ALLOW=1 npm run build'
+expect_deny "each heavy command needs its own token" 'cd x && PRESSURE_ALLOW=1 npm install && npm run build' 'RED'
+expect_deny "the reason says where the token goes" 'cd app && npm run build' 'directly before the heavy command'
 expect_deny "token in a quoted string does not count" 'npm install --message "PRESSURE_ALLOW=1"' 'RED'
 expect_deny "PRESSURE_ALLOW=0 does not count" 'PRESSURE_ALLOW=0 npm install' 'RED'
 expect_deny "PRESSURE_ALLOW=10 does not count" 'PRESSURE_ALLOW=10 npm install' 'RED'
@@ -81,6 +84,7 @@ expect_allow "max_parallel_heavy=2 lets a second run start" 'npx playwright test
 expect_allow "the plugin option sets the cap too" 'npx playwright test' CLAUDE_PLUGIN_OPTION_MAX_PARALLEL_HEAVY=2
 expect_allow "a non-e2e heavy command is not capped" 'npm install'
 expect_allow "PRESSURE_ALLOW=1 skips the cap" 'PRESSURE_ALLOW=1 npx playwright test'
+expect_allow "PRESSURE_ALLOW=1 after cd skips the cap" 'cd fe && PRESSURE_ALLOW=1 npx playwright test'
 set_ps "  1 0 /sbin/launchd" " 400 1 npm run test:e2e" " 401 400 sh -c playwright test" " 402 401 node playwright test"
 expect_deny "a run and its children count once at cap 1" 'npx playwright test' 'already active'
 expect_allow "a run and its children count once at cap 2" 'npx playwright test' MACHINE_PRESSURE_MAX_PARALLEL_HEAVY=2
