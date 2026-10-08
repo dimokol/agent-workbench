@@ -60,6 +60,24 @@ More agents means more chances for one of them to do something you didn't ask fo
   one sitting on one local branch, with a checklist per PR, instead of switching branches for each
   one.
 
+## 6. End-to-end tests with several agents
+
+Every project's e2e setup is different, but the same few rules keep agents from breaking each
+other's runs:
+
+- Give each run or stack a throwaway database, and make the test entry point refuse any database
+  that isn't local and named for tests.
+- Keep ports from colliding: derive them from the worktree path for a stack that stays up, or let
+  the OS pick one for a server the test run starts and stops itself.
+- Start a run's servers in their own process group and stop the whole group, so a killed run
+  leaves nothing holding a port.
+- Lock anything there's only one of, like a simulator, a phone or a stack slot: an atomic `mkdir`
+  with the owner's PID inside, released only by its owner.
+- An agent waits for its own test run to finish before it reports back.
+
+[`machine-pressure`](../plugins/machine-pressure) already keeps e2e runs to one at a time and refuses
+them while the machine is in the red.
+
 ## A typical day
 
 1. Morning: [`worktree-hygiene`](../plugins/worktree-hygiene) lists yesterday's merged worktrees,

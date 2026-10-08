@@ -45,7 +45,6 @@ is a five-minute read.
 | [verify-before-building](plugins/verify-before-building) | Fetches and checks the trunk before you branch, so nobody rebuilds what already merged. | skill |
 | [pr-review-loop](plugins/pr-review-loop) | Asks the reviewer once, applies or answers every finding, reruns your checks, stops when the PR is ready. Never merges on its own. | skill |
 | [integration-branch-qa](plugins/integration-branch-qa) | Test several approved PRs at once on one local branch that never gets pushed, with a clickable checklist and a merge gate. | skill, hook |
-| [e2e-harness-patterns](plugins/e2e-harness-patterns) | A local e2e stack per worktree, so several agents can run end-to-end tests side by side. | skill |
 | [setup-audit](plugins/setup-audit) | A weekly read of the Claude Code changelog plus your own drift checks, written to a log. | skill |
 
 [blocks/](blocks) holds text to paste into your own `CLAUDE.md` or `AGENTS.md`: a working

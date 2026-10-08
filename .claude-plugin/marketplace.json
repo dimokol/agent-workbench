@@ -70,12 +70,6 @@
       "category": "shipping"
     },
     {
-      "name": "e2e-harness-patterns",
-      "source": "./plugins/e2e-harness-patterns",
-      "description": "Patterns for a local end-to-end test harness that several agents can run in parallel: one stack per worktree, seeded data, Playwright, affected-only runs.",
-      "category": "shipping"
-    },
-    {
       "name": "setup-audit",
       "source": "./plugins/setup-audit",
       "description": "A weekly audit of your Claude Code setup: new changelog entries, community tool changes, and your own drift checks, logged and never applied.",
