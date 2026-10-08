@@ -85,6 +85,8 @@ expect_allow "token directly before the heavy command, after cd" 'cd x && PRESSU
 expect_allow "token after another assignment, after cd" 'cd app && CI=1 PRESSURE_ALLOW=1 npm run build'
 expect_deny "each heavy command needs its own token" 'cd x && PRESSURE_ALLOW=1 npm install && npm run build' 'RED'
 expect_deny "the reason says where the token goes" 'cd app && npm run build' 'directly before the heavy command'
+expect_deny "a heavy command after a lone & is gated" 'sleep 1 & npm install' 'RED'
+expect_deny "the token doesn't reach past a lone &" 'cd x && PRESSURE_ALLOW=1 npm ci & npm run build' 'RED'
 expect_deny "token in a quoted string does not count" 'npm install --message "PRESSURE_ALLOW=1"' 'RED'
 expect_deny "PRESSURE_ALLOW=0 does not count" 'PRESSURE_ALLOW=0 npm install' 'RED'
 expect_deny "PRESSURE_ALLOW=10 does not count" 'PRESSURE_ALLOW=10 npm install' 'RED'

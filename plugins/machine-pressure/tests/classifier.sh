@@ -146,6 +146,10 @@ t tests 'npm test -- ls src'
 t tests 'npm test -- --grep add item'
 t e2e 'npm run e2e -- --grep add item'
 t build 'npm run build -- --ls'
+t install 'sleep 1 & npm install'
+t tests 'npm test &> out.log'
+t build 'npm run build 2>&1 | tee build.log'
+t build 'npm run build >&2'
 
 echo "== docker compose: only the subcommand decides =="
 t none 'docker compose exec app npm run lint'
