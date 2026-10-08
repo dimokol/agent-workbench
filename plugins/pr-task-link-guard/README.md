@@ -2,7 +2,7 @@
 
 `gh pr create` is refused until the PR body links a task on your task board.
 
-A `PreToolUse` hook on Bash. The link passes when it appears anywhere in the command (an inline `--body`, or a heredoc that writes the body file in the same command) or in the `--body-file`, read relative to the session's working directory. The deny message tells the agent to find or create the task, add the link and try again. It does nothing until you set `task_link_pattern`, and says so once per session.
+A `PreToolUse` hook on Bash. The link passes when it appears anywhere in the command (an inline `--body`, or a heredoc that writes the body file in the same command) or in the file passed to `--body-file` or read by `--body "$(cat body.md)"`, relative to the session's working directory (`$PWD` and `$HOME` in the path are fine). The deny message tells the agent to find or create the task, add the link and try again. It does nothing until you set `task_link_pattern`, and says so once per session.
 
 ## Install
     claude plugin marketplace add dimokol/agent-workbench
