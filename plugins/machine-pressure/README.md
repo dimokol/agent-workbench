@@ -16,7 +16,7 @@ A plugin can't set the statusline, so copy the probe, then point `statusLine` at
     mkdir -p ~/.claude/scripts && curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/plugins/machine-pressure/scripts/pressure.sh -o ~/.claude/scripts/pressure.sh && chmod +x ~/.claude/scripts/pressure.sh
     { "statusLine": { "type": "command", "command": "~/.claude/scripts/pressure.sh --statusline" } }
 
-Other modes: `--json`, `--field cpu|ram|swap|load|disk|level`. Level is OK, AMBER, RED, or UNKNOWN when nothing can be read (never RED). Readings are cached 4 seconds.
+Other modes: `--json` has the plain values for scripts (`"level":"AMBER"`, `"ram_pct":71`). `--field cpu|ram|swap|load|disk|level` prints one colored display segment such as `RAM 71%` or `pressure AMBER`; set `NO_COLOR=1` to drop the color codes. Level is OK, AMBER, RED, or UNKNOWN when nothing can be read (never RED). Readings are cached 4 seconds per folder.
 
 ### ccstatusline indicators
 [ccstatusline](https://www.npmjs.com/package/ccstatusline) can show one colored widget per signal. Add custom-command widgets to a line in `~/.config/ccstatusline/settings.json` (all six: `examples/ccstatusline.json`). Each is `{ "type": "custom-command", "commandPath": "~/.claude/scripts/pressure.sh --field ram", "preserveColors": true, "timeout": 2500 }`. If a widget stays empty, write the full home path instead of `~`.
