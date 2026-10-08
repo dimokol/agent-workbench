@@ -121,19 +121,24 @@ classify_line() {
     "pytest"*|"python -m pytest"*|"python3 -m pytest"*|"python"[0-9.]*" -m pytest"*|"cargo test"*|"go test"*) echo tests; return ;;
     "turbo "*" test"*|"make test"*|"make "*" test"*|"mvn "*test*|"gradle "*test*|"./gradlew "*test*|"gradlew "*test*) echo tests; return ;;
   esac
+  query=""
   case "$1" in
     "npm "*|"pnpm "*|"yarn "*|"bun "*)
       case "$1" in
-        *" view "*|*" info "*|*" search "*|*" why "*|*" help "*|*" ls "*|*" add "*|*" remove "*|*" uninstall "*) ;;
+        # Asking about a package, or removing one, runs nothing.
+        *" view "*|*" info "*|*" search "*|*" why "*|*" explain "*|*" help "*|*" ls "*|*" add "*|*" remove "*|*" uninstall "*) query=1 ;;
         *" build"|*" build "*|*" build:"*) echo build; return ;;
+        *" e2e"|*" e2e "*|*" e2e:"*) echo e2e; return ;;
       esac ;;
   esac
-  case "$1" in
-    "npm "*|"npx "*|"pnpm "*|"yarn "*|"bun "*|"bunx "*|"node "*|vitest*|jest*)
-      case "$1" in
-        *vitest*|*jest*|*"test:affected"*|*" test"|*" test "*) echo tests; return ;;
-      esac ;;
-  esac
+  if [ -z "$query" ]; then
+    case "$1" in
+      "npm "*|"npx "*|"pnpm "*|"yarn "*|"bun "*|"bunx "*|"node "*|vitest*|jest*)
+        case "$1" in
+          *vitest*|*jest*|*"test:affected"*|*" test"|*" test "*) echo tests; return ;;
+        esac ;;
+    esac
+  fi
   if [ -n "$extra" ]; then
     printf '%s\n' "$extra" | while IFS= read -r p; do
       [ -n "$p" ] && printf '%s\n' "$1" | grep -Eq -- "$p" && { echo heavy; break; }
@@ -162,7 +167,8 @@ fi
 # process whose parent also matches belongs to the same run and is not counted.
 pat=""; xpat=""
 case $class in
-  e2e)     pat='playwright test|cypress run|test:e2e|e2e:up|e2e[.]sh'; xpat='playwright[.]unit|test:unit' ;;
+  e2e)     pat='playwright test|cypress run|test:e2e|e2e:up|e2e[.]sh|(npm|pnpm|yarn|bun)( run)? e2e( |:|$)'
+           xpat='playwright[.]unit|test:unit|e2e:(down|status|reset|stop)' ;;
   # A compose line counts by its subcommand (the heavy list in compose_kind), read past
   # global options, so `docker compose exec app npm run build` is not a run.
   docker)  pat='docker[ -]compose( compose)?( +-[^ ]+( +[^ -][^ ]*)?)* +(up|build|run|create|start|restart|pull|watch|scale)( |$)|docker (buildx )?build|docker buildx|docker run' ;;

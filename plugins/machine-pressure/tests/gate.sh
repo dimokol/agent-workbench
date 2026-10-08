@@ -116,6 +116,18 @@ set_ps "  1 0 /sbin/launchd" " 506 1 docker run -it --rm --name devdb postgres"
 expect_allow "ignore_running_patterns skips a process" 'docker compose up' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=--name.devdb
 expect_allow "ignore_running_patterns as a plugin option array" 'docker compose up' 'CLAUDE_PLUGIN_OPTION_IGNORE_RUNNING_PATTERNS=["x","devdb"]'
 expect_deny "ignore_running_patterns that match nothing" 'docker compose up' 'already active' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=other
+set_ps "  1 0 /sbin/launchd" " 800 1 node /x/node_modules/.bin/playwright test"
+expect_deny "npm run e2e waits for a running playwright" 'npm run e2e' 'already active'
+expect_deny "pnpm e2e waits too" 'pnpm e2e' 'already active'
+set_ps "  1 0 /sbin/launchd" " 810 1 node /usr/local/bin/npm run e2e"
+expect_deny "a running npm run e2e counts" 'npx playwright test' 'already active'
+set_ps "  1 0 /sbin/launchd" " 820 1 node /usr/local/bin/npm run e2e:down"
+expect_allow "a running e2e:down is not a run" 'npx playwright test'
+set_level RED
+set_ps "  1 0 /sbin/launchd"
+expect_allow "RED: npm ls jest only reads" 'npm ls jest'
+expect_allow "RED: npm view vitest only reads" 'npm view vitest version'
+set_level OK
 set_ps "  1 0 /sbin/launchd"
 expect_allow "no runs: allowed" 'npx playwright test'
 

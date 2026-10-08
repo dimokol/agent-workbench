@@ -126,6 +126,21 @@ t tests './gradlew test'
 t docker 'docker run --rm -it ubuntu bash'
 t none 'docker exec web ls'
 
+echo "== an e2e script through a package manager, and package queries =="
+t e2e 'npm run e2e'
+t e2e 'pnpm e2e'
+t e2e 'yarn e2e'
+t e2e 'bun run e2e'
+t e2e 'pnpm run e2e:headed'
+t e2e 'cd web && npm run e2e -- --project=chromium'
+t none 'npm run e2e:down'
+t none 'npm ls jest'
+t none 'npm view vitest version'
+t none 'npm explain jest'
+t none 'pnpm why vitest'
+t none 'npm uninstall jest'
+t none 'yarn info jest'
+
 echo "== docker compose: only the subcommand decides =="
 t none 'docker compose exec app npm run lint'
 t none 'docker compose exec app rails db:migrate'
