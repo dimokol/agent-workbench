@@ -123,8 +123,9 @@ check_main() {
 # words separated by \037 (a newline inside a word becomes \036). Quotes and
 # backslashes are removed, so a quoted path with a space stays one word. A
 # $(...) or backtick leaves "$" in its word and its commands come out on lines
-# of their own. Redirections, comments and heredoc bodies are dropped, except a
-# heredoc that a shell reads (bash <<EOF), whose lines are commands.
+# of their own. Redirections, comments and heredoc bodies are dropped, except
+# when a shell appears anywhere on the heredoc's line (bash <<EOF, X=1 bash <<EOF,
+# cat <<EOF | sh): then the body lines are commands.
 split_command() {
   printf '%s\n' "$1" | LC_ALL=C awk '
     function add(ch) { word = word (ch == "\n" ? RSEP : ch); inword = 1 }
@@ -135,7 +136,15 @@ split_command() {
       }
       word = ""; inword = 0
     }
-    function endseg() { flush(); if (nw) print seg; seg = ""; nw = 0; skip = 0 }
+    function endseg(   k, m, ws, w) {
+      flush()
+      if (nw) {
+        print seg
+        m = split(seg, ws, USEP)
+        for (k = 1; k <= m; k++) { w = ws[k]; sub(/.*\//, "", w); if (w ~ /^(ba|z|da|k)?sh$/) lineshell = 1 }
+      }
+      seg = ""; nw = 0; skip = 0
+    }
     function opensub(closer) {
       add("$")
       sseg[d] = seg; snw[d] = nw; sword[d] = word; sinw[d] = inword; sq[d] = q; sskip[d] = skip
@@ -146,7 +155,7 @@ split_command() {
       endseg(); d--
       seg = sseg[d]; nw = snw[d]; word = sword[d]; inword = sinw[d]; q = sq[d]; skip = sskip[d]
     }
-    function heredoc(   dash, delim, ch, fw) { # at the "<<"; reads its delimiter
+    function heredoc(   dash, delim, ch) { # at the "<<"; reads its delimiter
       i++
       if (substr(src, i + 1, 1) == "-") { dash = 1; i++ }
       while (substr(src, i + 1, 1) ~ /[ \t]/) i++
@@ -156,13 +165,10 @@ split_command() {
         if (ch != SQ && ch != "\"" && ch != "\\") delim = delim ch
         i++
       }
-      fw = nw ? substr(seg, 1, index(seg USEP, USEP) - 1) : word
-      sub(/.*\//, "", fw)
-      nh++; hd[nh] = delim; hdash[nh] = dash; hshell[nh] = (fw ~ /^(ba|z|da|k)?sh$/)
+      nh++; hd[nh] = delim; hdash[nh] = dash
     }
     function bodies(   k, nl, line) { # after a newline: skip the pending heredoc bodies
-      for (k = 1; k <= nh; k++) {
-        if (hshell[k]) break # a shell runs this body: read it as commands
+      for (k = 1; !lineshell && k <= nh; k++) { # with a shell on the line, read them as commands
         while (i < n) {
           nl = index(substr(src, i + 1), "\n")
           line = nl ? substr(src, i + 1, nl - 1) : substr(src, i + 1)
@@ -171,7 +177,7 @@ split_command() {
           if (line == hd[k]) break
         }
       }
-      nh = 0
+      nh = 0; lineshell = 0
     }
     BEGIN { USEP = sprintf("%c", 31); RSEP = sprintf("%c", 30); SQ = sprintf("%c", 39) }
     { src = src $0 "\n" }

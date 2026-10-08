@@ -424,6 +424,30 @@ allowed "a separator inside quotes is text" "$SP" "echo 'done; git checkout main
 denied "a heredoc a shell reads is commands" "$SP" "bash <<'EOF'
 git push origin qa-integration
 EOF"
+denied "a heredoc piped into bash is commands" "$SP" "cat <<'EOF' | bash
+git push origin qa-integration
+EOF"
+denied "a heredoc piped into sh is commands" "$SP" "cat <<'EOF' | sh
+git checkout main
+EOF"
+denied "a heredoc fed to bash after an assignment" "$SP" "X=1 bash <<'EOF'
+git push origin qa-integration
+EOF"
+denied "a heredoc fed to env bash" "$SP" "env bash <<'EOF'
+git checkout main
+EOF"
+denied "a heredoc fed to sudo -u me bash" "$SP" "sudo -u me bash <<'EOF'
+git push origin qa-integration
+EOF"
+denied "the override before bash doesn't reach into its heredoc" "$SP" "QA_BRANCH_ALLOW=1 bash <<'EOF'
+git checkout main
+EOF"
+denied "nor lets the integration branch be pushed" "$SP" "QA_BRANCH_ALLOW=1 bash <<'EOF'
+git push origin qa-integration
+EOF"
+allowed "the override directly before a command in the heredoc counts" "$SP" "bash <<'EOF'
+QA_BRANCH_ALLOW=1 git checkout main
+EOF"
 denied "a command after a heredoc is still read" "$SP" "cat > notes.md <<'EOF'
 notes
 EOF
