@@ -1,0 +1,65 @@
+{
+  "name": "pr-review-loop",
+  "version": "0.1.0",
+  "description": "Takes open GitHub PRs to approved and mergeable: asks the reviewer once, fixes or answers each finding, reruns your checks, merges only when you ask.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["pull-requests", "code-review", "github", "worktrees", "agents"],
+  "userConfig": {
+    "reviewer": {
+      "type": "string",
+      "title": "Reviewer",
+      "description": "GitHub login whose approval counts. Leave empty to be asked each run.",
+      "default": ""
+    },
+    "ask_via": {
+      "type": "string",
+      "title": "How to ask the reviewer",
+      "description": "github-review requests a review on each PR. comment posts one PR comment that mentions the reviewer.",
+      "default": "github-review"
+    },
+    "gate_command": {
+      "type": "string",
+      "title": "Gate command",
+      "description": "Checks that must pass before a PR is READY. <n> is the PR number.",
+      "default": "gh pr checks <n> --watch"
+    },
+    "e2e_command": {
+      "type": "string",
+      "title": "End-to-end command",
+      "description": "Optional extra suite, run in the PR's worktree when the diff changes behavior. Empty skips it.",
+      "default": ""
+    },
+    "max_rounds": {
+      "type": "number",
+      "title": "Max review rounds",
+      "description": "Review rounds per PR before it stops and hands the PR back to you.",
+      "default": 3
+    },
+    "poll_seconds": {
+      "type": "number",
+      "title": "Poll interval (seconds)",
+      "description": "How often the watcher checks GitHub for reviewer activity.",
+      "default": 60
+    },
+    "bump_after_minutes": {
+      "type": "number",
+      "title": "Bump after (minutes)",
+      "description": "Silence after the ask before one reminder. After that the stall is reported to you.",
+      "default": 10
+    },
+    "worktree_pattern": {
+      "type": "string",
+      "title": "Worktree folder",
+      "description": "Folder name for each PR's worktree, created next to your checkout. <repo> is the checkout's folder name, <n> the PR number.",
+      "default": "<repo>--pr-<n>"
+    },
+    "merge_method": {
+      "type": "string",
+      "title": "Merge method",
+      "description": "squash, merge or rebase. Used only on runs started with --merge.",
+      "default": "squash"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# 41943 pages of 16 KB free, inactive, speculative or purgeable: 655 MB of 16 GB, so RAM reads 96%.
+cat <<OUT
+Mach Virtual Memory Statistics: (page size of 16384 bytes)
+Pages free:                                8000.
+Pages active:                            950000.
+Pages inactive:                           25000.
+Pages speculative:                         3000.
+Pages purgeable:                           5943.
+OUT

@@ -1,0 +1,9 @@
+#!/bin/sh
+case "$2" in
+  hw.ncpu) echo 8 ;;
+  vm.loadavg) echo "{ 13.07 11.52 9.80 }" ;;
+  hw.memsize) echo 17179869184 ;;
+  kern.memorystatus_vm_pressure_level) echo 4 ;;
+  vm.swapusage) echo "total = 4096.00M  used = 3768.00M  free = 328.00M  (encrypted)" ;;
+  *) exit 1 ;;
+esac

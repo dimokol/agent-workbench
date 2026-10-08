@@ -1,0 +1,9 @@
+{
+  "name": "integration-branch-qa",
+  "version": "0.1.0",
+  "description": "Test several approved PRs at once on one local integration branch, with a queue, a clickable checklist, a merge gate and a guard hook.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["git", "qa", "pull-requests", "manual-testing", "integration-branch", "multi-agent"]
+}
