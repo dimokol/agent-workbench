@@ -150,11 +150,10 @@ for args in "12" "--repo o/r" "--repo o/r 12a" "--repo o/r --interval x 12" "--r
 done
 check "watch: bad args never call gh" "0" "$(cat "$D/calls.log" 2>/dev/null | wc -l | tr -d ' ')"
 
-if PATH=/usr/bin:/bin command -v gh >/dev/null 2>&1; then echo "skip gh-missing test (gh in /usr/bin or /bin)"
-else
-  out=$(PATH=/usr/bin:/bin /bin/bash "$W" --repo o/r 12 2>&1); code=$?
-  check "watch: missing gh is reported on stdout, exit 2" "watch-reviews: gh not found, nothing to watch|2" "$out|$code"
-fi
+# A PATH with only the tools the script needs before its gh check. Linux runners keep gh in /usr/bin.
+mkdir "$T/nogh"; ln -s "$(command -v grep)" "$T/nogh/grep"
+out=$(PATH="$T/nogh" /bin/bash "$W" --repo o/r 12 2>&1); code=$?
+check "watch: missing gh is reported on stdout, exit 2" "watch-reviews: gh not found, nothing to watch|2" "$out|$code"
 
 # ---- pr-state.sh ----
 ASK=2026-01-10T10:00:00Z BEFORE=2026-01-09T10:00:00Z AFTER=2026-01-10T11:00:00Z LATER=2026-01-10T12:00:00Z
