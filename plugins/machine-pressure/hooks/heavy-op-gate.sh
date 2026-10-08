@@ -14,7 +14,7 @@
 # the command. Override a single command with a leading PRESSURE_ALLOW=1.
 #
 # Settings (CLAUDE_PLUGIN_OPTION_<KEY>, else MACHINE_PRESSURE_<KEY>, else default):
-#   MAX_PARALLEL_HEAVY (1), EXTRA_HEAVY_PATTERNS (empty).
+#   MAX_PARALLEL_HEAVY (1), EXTRA_HEAVY_PATTERNS (empty), IGNORE_RUNNING_PATTERNS (empty).
 # Test hooks: MACHINE_PRESSURE_DEBUG=1 prints the class and stops;
 #   PRESSURE_PROBE points at another probe script.
 
@@ -75,11 +75,14 @@ has_override "$cmd" && exit 0
 . "$HEADS_LIB"
 heads=$(command_heads "$cmd")
 
-extra=$(cfg extra_heavy_patterns "")
-case $extra in
-  \[*) extra=$(printf '%s' "$extra" | jq -r '.[]' 2>/dev/null) || extra="" ;;
-  *) extra=$(printf '%s' "$extra" | tr ',' '\n') ;;
-esac
+patterns() { # key: one regex per line, from a JSON array or a comma list
+  _p=$(cfg "$1" "")
+  case $_p in
+    \[*) printf '%s' "$_p" | jq -r '.[]' 2>/dev/null ;;
+    *) printf '%s' "$_p" | tr ',' '\n' ;;
+  esac
+}
+extra=$(patterns extra_heavy_patterns)
 
 # Only compose subcommands that start or build containers are heavy. The rest
 # (exec, logs, ps, down, cp ...) read, attach or free memory.
@@ -167,16 +170,36 @@ case $class in
   build)   pat='npm run build|pnpm (run )?build|yarn build|next build|tsc (--build|-b)|cargo build|vite build|turbo (run )?build|mvn .*package|gradlew? .*build' ;;
   tests)   pat='vitest|jest|npm test|npm run test|pnpm test|yarn test|pytest|cargo test|go test|turbo (run )?test|mvn .*test|gradlew? .*test' ;;
 esac
+# Processes matching ignore_running_patterns never count, joined into one regex.
+ignore=$(patterns ignore_running_patterns | awk 'NF { printf "%s(%s)", (n++ ? "|" : ""), $0 }')
 running=0
 if [ -n "$pat" ]; then
   procs=$(ps -A -o pid=,ppid=,command= 2>/dev/null)
-  n=$(printf '%s\n' "$procs" | awk -v pat="$pat" -v skip="$xpat" '
+  n=$(printf '%s\n' "$procs" | IGNORE="$ignore" awk -v pat="$pat" -v skip="$xpat" '
+    # A docker run with -i and no tty talks over stdin and stdout: a stdio MCP server
+    # that lives as long as its session, not a run.
+    function stdio_run(cmd,   w, n, i, x, inter, tty) {
+      n = split(cmd, w, /[ \t]+/)
+      for (i = 2; i <= n && !(w[i] == "run" && w[i - 1] ~ /(^|\/)docker$/); i++) ;
+      for (i++; i <= n; i++) {
+        x = w[i]
+        if (x !~ /^-/) break # the image
+        if (x ~ /^--interactive(=true)?$/) inter = 1
+        else if (x ~ /^--tty(=true)?$/) tty = 1
+        else if (x ~ /^-[dPqit]+$/) { if (x ~ /i/) inter = 1; if (x ~ /t/) tty = 1 }
+        else if (x ~ /^-[a-zA-Z]$/ || (x ~ /^--/ && x !~ /=/ && x !~ /^--(rm|detach|init|privileged|read-only|publish-all|no-healthcheck|oom-kill-disable|quiet|sig-proxy|disable-content-trust)$/)) i++ # its value
+      }
+      return inter && !tty
+    }
+    BEGIN { ign = ENVIRON["IGNORE"] }
     { pid = $1; ppid = $2; cmd = $0
       sub(/^[ \t]*[0-9]+[ \t]+[0-9]+[ \t]+/, "", cmd)
       split(cmd, a, " "); k = split(a[1], b, "/"); base = b[k]
       if (base ~ /^(grep|egrep|rg|pgrep|ps|tail|less|cat|vi|vim|nano|git|awk|sed)$/) next
       if (cmd !~ pat) next
       if (skip != "" && cmd ~ skip) next
+      if (ign != "" && cmd ~ ign) next
+      if (cmd ~ /docker run/ && stdio_run(cmd)) next
       hit[pid] = 1; par[pid] = ppid }
     END { c = 0; for (p in hit) if (!(par[p] in hit)) c++; print c }' 2>/dev/null)
   case $n in ''|*[!0-9]*) n=0 ;; esac

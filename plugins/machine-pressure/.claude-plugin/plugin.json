@@ -18,6 +18,7 @@
     "load_amber_x": { "type": "number", "title": "Load amber (x cores)", "description": "1-minute load average, as a multiple of the core count, at which pressure turns AMBER.", "default": 1.5 },
     "load_red_x": { "type": "number", "title": "Load red (x cores)", "description": "1-minute load average, as a multiple of the core count, at which pressure turns RED.", "default": 3 },
     "max_parallel_heavy": { "type": "number", "title": "Parallel e2e and docker runs", "description": "How many e2e or docker runs may be active at once across all sessions. Further ones are refused.", "default": 1 },
-    "extra_heavy_patterns": { "type": "string", "multiple": true, "title": "Extra heavy commands", "description": "Extended regular expressions. A command whose executable and first words match is blocked under RED pressure, like an install or a build.", "default": [] }
+    "extra_heavy_patterns": { "type": "string", "multiple": true, "title": "Extra heavy commands", "description": "Extended regular expressions. A command whose executable and first words match is blocked under RED pressure, like an install or a build.", "default": [] },
+    "ignore_running_patterns": { "type": "string", "multiple": true, "title": "Running processes to ignore", "description": "Extended regular expressions. A running process whose command line matches doesn't count toward the parallel e2e and docker limit.", "default": [] }
   }
 }

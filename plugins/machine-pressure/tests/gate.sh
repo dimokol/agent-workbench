@@ -101,6 +101,21 @@ set_ps "  1 0 /sbin/launchd" " 720 1 docker compose exec app npm run build"
 expect_allow "a running compose exec is not a run" 'docker compose up'
 set_ps "  1 0 /sbin/launchd" " 730 1 /opt/docker/cli-plugins/docker-compose compose -f a.yml up"
 expect_deny "the compose plugin process counts" 'docker compose up' 'already active'
+set_ps "  1 0 /sbin/launchd" " 501 500 docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server"
+expect_allow "a stdio MCP server (docker run -i, no tty) is not a run: build" 'docker build -t app .'
+expect_allow "a stdio MCP server is not a run: compose up" 'docker compose up -d'
+set_ps "  1 0 /sbin/launchd" " 502 1 docker run --interactive -e A=1 -v /x:/y mcp/fetch"
+expect_allow "--interactive without a tty is not a run" 'docker compose up -d'
+set_ps "  1 0 /sbin/launchd" " 503 1 docker run -it --rm ubuntu bash"
+expect_deny "an -it shell still counts" 'docker build -t app .' 'already active'
+set_ps "  1 0 /sbin/launchd" " 504 1 docker run -i -t --rm ubuntu bash"
+expect_deny "-i -t still counts" 'docker build -t app .' 'already active'
+set_ps "  1 0 /sbin/launchd" " 505 1 docker run --rm -v /x:/y app pytest -i"
+expect_deny "a job without -i counts, whatever its own arguments are" 'docker build -t app .' 'already active'
+set_ps "  1 0 /sbin/launchd" " 506 1 docker run -it --rm --name devdb postgres"
+expect_allow "ignore_running_patterns skips a process" 'docker compose up' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=--name.devdb
+expect_allow "ignore_running_patterns as a plugin option array" 'docker compose up' 'CLAUDE_PLUGIN_OPTION_IGNORE_RUNNING_PATTERNS=["x","devdb"]'
+expect_deny "ignore_running_patterns that match nothing" 'docker compose up' 'already active' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=other
 set_ps "  1 0 /sbin/launchd"
 expect_allow "no runs: allowed" 'npx playwright test'
 
