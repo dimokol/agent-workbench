@@ -193,11 +193,26 @@ case $class in
   tests)   pat='vitest|jest|npm test|npm run test|pnpm test|yarn test|pytest|cargo test|go test|turbo (run )?test|mvn .*test|gradlew? .*test' ;;
 esac
 # Processes matching ignore_running_patterns never count, joined into one regex.
-ignore=$(patterns ignore_running_patterns | awk 'NF { printf "%s(%s)", (n++ ? "|" : ""), $0 }')
+# A pattern awk can't compile is dropped with a note, so a typo never turns the cap off.
+ignore=""; bad=""; notice=""
+while IFS= read -r _p; do
+  [ -n "$_p" ] || continue
+  if P=$_p awk 'BEGIN { if ("" ~ ENVIRON["P"]) {} }' >/dev/null 2>&1; then ignore="$ignore${ignore:+|}($_p)"
+  else bad="$bad${bad:+, }$_p"; fi
+done <<EOF_IGNORE
+$(patterns ignore_running_patterns)
+EOF_IGNORE
+if [ -n "$bad" ]; then
+  marker="$TMP/machine-pressure-badpattern-$PPID"
+  if [ ! -e "$marker" ]; then
+    : > "$marker" 2>/dev/null
+    notice="machine-pressure: ignore_running_patterns has an invalid regex, skipped: $bad"
+  fi
+fi
 running=0
 if [ -n "$pat" ]; then
   procs=$(ps -A -o pid=,ppid=,command= 2>/dev/null)
-  n=$(printf '%s\n' "$procs" | IGNORE="$ignore" awk -v pat="$pat" -v skip="$xpat" '
+  count_runs() { printf '%s\n' "$procs" | IGNORE="$1" awk -v pat="$pat" -v skip="$xpat" '
     # A docker run with -i and no tty talks over stdin and stdout: a stdio MCP server
     # that lives as long as its session, not a run.
     function stdio_run(cmd,   w, n, i, x, inter, tty) {
@@ -223,7 +238,9 @@ if [ -n "$pat" ]; then
       if (ign != "" && cmd ~ ign) next
       if (cmd ~ /docker run/ && stdio_run(cmd)) next
       hit[pid] = 1; par[pid] = ppid }
-    END { c = 0; for (p in hit) if (!(par[p] in hit)) c++; print c }' 2>/dev/null)
+    END { c = 0; for (p in hit) if (!(par[p] in hit)) c++; print c }' 2>/dev/null; }
+  n=$(count_runs "$ignore")
+  case $n in ''|*[!0-9]*) n=$(count_runs "") ;; esac # the ignore list never turns the cap off
   case $n in ''|*[!0-9]*) n=0 ;; esac
   running=$n
 fi
@@ -241,9 +258,10 @@ summary=$(printf '%s' "$pj" | jq -r 'def v(x): if x == null then "n/a" else (x|t
   "CPU \(v(.cpu_pct))%, RAM \(v(.ram_pct))%\(if .mem_pressure then " (memory pressure \(.mem_pressure))" else "" end), swap \(v(.swap_pct))%, load \(v(.load1)), disk \(v(.disk_free_gb)) GB free"' 2>/dev/null)
 [ -n "$summary" ] || summary="no machine reading"
 
-emit() { # deny|warn, message
-  printf '%s' "$2" | jq -Rs --arg d "$1" \
-    '{hookSpecificOutput: ({hookEventName:"PreToolUse"} + (if $d=="deny" then {permissionDecision:"deny", permissionDecisionReason:.} else {additionalContext:.} end))}'
+emit() { # deny|warn|note, message
+  printf '%s' "$2" | jq -Rs --arg d "$1" --arg n "$notice" \
+    '(if $d == "note" then {} else {hookSpecificOutput: ({hookEventName:"PreToolUse"} + (if $d=="deny" then {permissionDecision:"deny", permissionDecisionReason:.} else {additionalContext:.} end))} end)
+     + (if $n == "" then {} else {systemMessage: $n} end)'
   exit 0
 }
 
@@ -259,4 +277,5 @@ elif [ "$level" = AMBER ]; then
   emit warn "Machine pressure is AMBER ($summary). $running $class run(s) already active. The command will run, but consider closing idle sessions before starting more heavy work."
 fi
 
+[ -z "$notice" ] || emit note ""
 exit 0

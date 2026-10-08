@@ -32,7 +32,7 @@ Other modes: `--json` has the plain values for scripts (`"level":"AMBER"`, `"ram
 | `load_amber_x`, `load_red_x` | `MACHINE_PRESSURE_LOAD_AMBER_X`, `_LOAD_RED_X` | 1.5, 3 | 1-min load, times core count |
 | `max_parallel_heavy` | `MACHINE_PRESSURE_MAX_PARALLEL_HEAVY` | 1 | Concurrent e2e or docker runs |
 | `extra_heavy_patterns` | `MACHINE_PRESSURE_EXTRA_HEAVY_PATTERNS` | none | Regexes (comma separated in the env var) for more gated commands |
-| `ignore_running_patterns` | `MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS` | none | Regexes for running processes that don't count toward `max_parallel_heavy` |
+| `ignore_running_patterns` | `MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS` | none | Regexes for running processes that don't count toward `max_parallel_heavy`. An invalid one is skipped with a note |
 
 Each setting comes from the plugin option, then the env var (`settings.json` `env`; the statusline script reads only that), then the default. Gated: installs, builds and test runners (npm, pnpm, yarn, bun, workspace forms, pytest, cargo, go, turbo, make, mvn, gradle), e2e (playwright, cypress, `test:e2e*`, an `e2e` or `e2e:*` script), docker run/build and compose up/build/run/start. Anything else: `extra_heavy_patterns`. Compose commands that don't start containers (`exec`, `logs`, `down`), `e2e:down`, package queries such as `npm ls jest` and quoted text never match. To run one command anyway, put `PRESSURE_ALLOW=1` directly before it, after any `cd`: `cd app && PRESSURE_ALLOW=1 npm run build`. An attached long-running `docker run` (an `-it` shell) holds the docker slot until it exits. A `docker run -i` without a tty is a stdio MCP server and never counts.
 
