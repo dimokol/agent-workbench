@@ -1,0 +1,10 @@
+{
+  "name": "starter",
+  "version": "0.1.0",
+  "description": "Installs git-guardrails, machine-pressure, worktree-hygiene and agent-chat in one go.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["bundle", "guardrails", "multi-agent"],
+  "dependencies": ["git-guardrails", "machine-pressure", "worktree-hygiene", "agent-chat"]
+}

@@ -1,67 +1,67 @@
-# useful-agent-skills
+# agent-workbench
 
-A hub of agent skills, guardrail hooks, and workflow patterns for AI-assisted development brought to life from everyday needs working on multiple large scale projects simoultaniously. To deem reuseable, some content in this repo is generalized, stripped of project specific paths and internal setup, explaining how it could apply to any project/workflow instead.
+Hooks, skills and an MCP server for running several coding agents at once without them
+merging things you didn't approve, fighting over one checkout, or pinning your CPU. Claude Code
+first; the skills and the chat server also work in Codex. Install only the parts you want.
 
-**Portability legend:** 🟢 generic (works as-is) · 🟡 adapt-via-config (fill placeholders in your CLAUDE.md).
-
-## Areas
-
-| Area | What's in it |
-|---|---|
-| [🛠 Skills](skills/) | Reusable `SKILL.md` workflows: PR finalize, branch safety, task sync, worktree QA. |
-| [🧩 MCP servers](mcp/) | Local MCP servers you wire into a project. **agent-chat**: a shared cross-agent chat so multiple CLI agents (Claude Code + Codex) deliberate across terminals. |
-| [🪝 Hooks](hooks/) | Guardrail hooks that block risky agent actions (no-auto-merge, PR↔task link). |
-| [📊 Statusline monitor](statusline/) | Live machine-pressure badge + a heavy-op gate for multi-agent workflows to prevent exploding laptops. |
-| [📋 CLAUDE.md blocks](claude-md/) | Copy-paste instruction blocks: a global working agreement + project standards. |
-| [✍️ AI writing tone](tone/) | Make agent-written text read human, plus a product-copy voice guide. |
-| [📚 Doc organization](docs-organization/) | How to structure `docs/`, write handoffs, and index "change X → edit here". |
-| [⚙️ Getting set up](setup/) | A dev-environment bootstrap prompt, a cross-machine replication kit, ecosystem picks. |
+New to running more than one agent? Start with
+[Running several agents at once](docs/running-several-agents.md). It's a five-minute read.
 
 ## Install
 
-### Claude Code one-liner
-
-Install all skills:
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dimokol/usefull-agent-skills/main/install.sh | bash
+claude plugin marketplace add dimokol/agent-workbench
+claude plugin install starter@dimokol   # git-guardrails, machine-pressure, worktree-hygiene, agent-chat
+claude plugin install <part>@dimokol    # or pick single parts from the table
 ```
 
-Install a specific skill by name:
+Then restart Claude Code. `/plugin` lists what you installed (with starter, `/mcp` also shows
+agent-chat). To see one work, ask "run a health check": worktree-hygiene audits your worktrees and
+disk without changing anything.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/dimokol/usefull-agent-skills/main/install.sh | bash -s babysit-prs
-```
+Every setting has a default. Change a part's settings with `/plugin configure <part>@dimokol`;
+each part's README lists them. Your own hooks stay as they are. Turn a part off with
+`claude plugin disable <part>@dimokol`.
 
-Then **restart Claude Code** (or open a new session). Skills are picked up on session start.
+Codex, or no plugin system: `curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- --list`
+shows the parts, and `... | bash -s -- <part>` copies one into place and prints any hook or MCP
+snippet for you to paste. For Codex, set the skills folder:
+`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | SKILLS_DIR=~/.codex/skills bash -s -- <part>`.
+In Codex the skills and agent-chat work; hooks are Claude Code only.
 
-### Codex install
+## Parts
 
-```bash
-SKILLS_DIR="$HOME/.codex/skills" \
-  bash <(curl -fsSL https://raw.githubusercontent.com/dimokol/usefull-agent-skills/main/install.sh)
-```
+| Part | What you get | Type |
+|---|---|---|
+| [git-guardrails](plugins/git-guardrails) | Agents can't merge PRs, push to protected branches, delete remote branches or run `reset --hard` unless you said so. Strict mode also gates every commit and push. | hooks |
+| [pr-task-link-guard](plugins/pr-task-link-guard) | `gh pr create` is refused when the body has no link to a task, once you set a task-link pattern. | hook |
+| [machine-pressure](plugins/machine-pressure) | Refuses a second e2e or Docker run, and heavy commands while CPU, RAM, swap or disk is in the red, plus a statusline script you add by hand. | hook, script |
+| [context-nudge](plugins/context-nudge) | One line when a session passes 250k, 400k and 600k tokens, or after an hour idle at 150k or more, so you compact or start fresh. | hook |
+| [worktree-hygiene](plugins/worktree-hygiene) | An audit to run at session start: merged worktrees, idle dependency folders, orphaned dev servers, free disk. Proposes, never deletes. | skill |
+| [storage-reclaim](plugins/storage-reclaim) | Disk cleanup that measures first and won't touch files a process or session is using. macOS. | skill |
+| [agent-chat](plugins/agent-chat) | Chat rooms for agents in different terminals, even in different repos, so they settle an API shape without you relaying. | MCP server |
+| [verify-before-building](plugins/verify-before-building) | Fetches and checks the trunk before you branch, so nobody rebuilds what already merged. | skill |
+| [pr-review-loop](plugins/pr-review-loop) | Asks the reviewer once, applies or answers every finding, reruns your checks, stops when the PR is ready. Never merges on its own. | skill |
+| [integration-branch-qa](plugins/integration-branch-qa) | Test several approved PRs at once on one local branch that never gets pushed, with a clickable checklist and a merge gate. | skill, hook |
+| [e2e-harness-patterns](plugins/e2e-harness-patterns) | A local e2e stack per worktree, so several agents can run end-to-end tests side by side. | skill |
+| [setup-audit](plugins/setup-audit) | A weekly read of the Claude Code changelog plus your own drift checks, written to a log. | skill |
 
-### Manual install
+[blocks/](blocks) holds text to paste into your own `CLAUDE.md` or `AGENTS.md`: a working
+agreement between you and the agent, web project standards, a writing tone, a product copy voice,
+and a docs layout.
 
-```bash
-AGENT_SKILLS_DIR="$HOME/.claude/skills" # or "$HOME/.codex/skills"
-mkdir -p "$AGENT_SKILLS_DIR/<skill-name>"
-curl -fsSL https://raw.githubusercontent.com/dimokol/usefull-agent-skills/main/skills/<skill-name>/SKILL.md \
-  -o "$AGENT_SKILLS_DIR/<skill-name>/SKILL.md"
-```
+## Also worth installing
 
-### MCP servers
+Other people's work that fits with these parts. Linked, not copied.
 
-The one-liner above installs `SKILL.md` workflows into your agent's skills dir.
-[MCP servers](mcp/) are different: they're small programs wired into a project's
-MCP config, so they install per-project via their own installer. For `agent-chat`:
+| What | Why | Install |
+|---|---|---|
+| [superpowers](https://github.com/obra/superpowers), pr-review-toolkit, feature-dev, claude-md-management, skill-creator | Planning, subagent-driven builds, review agents, CLAUDE.md upkeep | `claude plugin install <name>@claude-plugins-official` |
+| [mattpocock/skills](https://github.com/mattpocock/skills): grilling, diagnosing-bugs, pr, handoff | Sharp questions before building, a debug loop that starts from a failing repro, PR bodies, handoff notes | `claude plugin install mattpocock-skills`, or one skill: `npx skills add mattpocock/skills --skill grilling` |
+| [pstack](https://github.com/cursor/plugins/tree/main/pstack): unslop, blast-radius, show-me-your-work | Cuts AI tells from writing, finds what a change could break, keeps a decision log | `npx skills add https://github.com/cursor/plugins/tree/main/pstack --skill unslop -a claude-code` (Cursor: `/add-plugin pstack`) |
+| [ccstatusline](https://www.npmjs.com/package/ccstatusline) | A configurable statusline; machine-pressure ships widgets for it | `npm install -g ccstatusline` |
+| [Claude Notifications](https://marketplace.visualstudio.com/items?itemName=dimokol.claude-notifications) | A sound and a banner when any agent finishes, with a click that focuses its VS Code terminal | VS Code marketplace |
 
-```bash
-git clone https://github.com/dimokol/usefull-agent-skills.git
-node usefull-agent-skills/mcp/agent-chat/install.mjs --project /path/to/your-project --codex
-```
+## License
 
-Then restart / reconnect the MCP server in each terminal. See [mcp/agent-chat](mcp/agent-chat/).
-
-> **Companion extension if you run multiple Claude Code agents at once:** [**Claude Notifications**](https://marketplace.visualstudio.com/items?itemName=dimokol.claude-notifications) (sound + OS banner when any agent finishes, with one-click *focus the exact VS Code terminal that fired the notification*). Pairs natively with `babysit-prs` for per-PR completion alerts.
+MIT. See [LICENSE](LICENSE).

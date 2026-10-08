@@ -1,0 +1,85 @@
+{
+  "name": "dimokol",
+  "owner": { "name": "dimokol", "url": "https://github.com/dimokol" },
+  "description": "Hooks, skills and an MCP server for running several coding agents at once. Install only the parts you want.",
+  "plugins": [
+    {
+      "name": "starter",
+      "source": "./plugins/starter",
+      "description": "Installs git-guardrails, machine-pressure, worktree-hygiene and agent-chat in one go.",
+      "category": "bundle"
+    },
+    {
+      "name": "git-guardrails",
+      "source": "./plugins/git-guardrails",
+      "description": "Agents can't merge PRs, push to protected branches, delete remote branches or run reset --hard unless you said so.",
+      "category": "guardrails"
+    },
+    {
+      "name": "pr-task-link-guard",
+      "source": "./plugins/pr-task-link-guard",
+      "description": "gh pr create is refused when the PR body has no link to a task.",
+      "category": "guardrails"
+    },
+    {
+      "name": "machine-pressure",
+      "source": "./plugins/machine-pressure",
+      "description": "One e2e or Docker run at a time, no heavy commands while the machine is in the red, plus a statusline script you add by hand.",
+      "category": "machine"
+    },
+    {
+      "name": "context-nudge",
+      "source": "./plugins/context-nudge",
+      "description": "A one-line nudge when a session passes 250k, 400k and 600k tokens of context, or after an hour idle at 150k or more.",
+      "category": "machine"
+    },
+    {
+      "name": "worktree-hygiene",
+      "source": "./plugins/worktree-hygiene",
+      "description": "An audit to run at session start: merged worktrees, idle dependency folders, orphaned dev servers and free disk.",
+      "category": "machine"
+    },
+    {
+      "name": "storage-reclaim",
+      "source": "./plugins/storage-reclaim",
+      "description": "Disk cleanup that measures first and won't touch files a process or session is using. macOS.",
+      "category": "machine"
+    },
+    {
+      "name": "agent-chat",
+      "source": "./plugins/agent-chat",
+      "description": "Chat rooms for agents in different terminals, as a zero-dependency MCP server.",
+      "category": "coordination"
+    },
+    {
+      "name": "verify-before-building",
+      "source": "./plugins/verify-before-building",
+      "description": "Fetches and checks the trunk before you branch, so nobody rebuilds what already merged.",
+      "category": "shipping"
+    },
+    {
+      "name": "pr-review-loop",
+      "source": "./plugins/pr-review-loop",
+      "description": "Asks the reviewer once, applies or answers every finding, reruns your checks, stops when the PR is ready.",
+      "category": "shipping"
+    },
+    {
+      "name": "integration-branch-qa",
+      "source": "./plugins/integration-branch-qa",
+      "description": "Test several approved PRs at once on one local branch that never gets pushed.",
+      "category": "shipping"
+    },
+    {
+      "name": "e2e-harness-patterns",
+      "source": "./plugins/e2e-harness-patterns",
+      "description": "A local e2e stack per worktree, so several agents can run end-to-end tests side by side.",
+      "category": "shipping"
+    },
+    {
+      "name": "setup-audit",
+      "source": "./plugins/setup-audit",
+      "description": "A weekly read of the Claude Code changelog plus your own drift checks, written to a log.",
+      "category": "upkeep"
+    }
+  ]
+}
