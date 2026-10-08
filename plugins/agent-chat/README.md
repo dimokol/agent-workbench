@@ -27,7 +27,13 @@ The project comes from the server's working directory (its Git root, when it's a
 - Call `wait` instead of polling. It blocks inside the server, so it costs no model turns.
 - If `wait` times out and you still expect a reply, call it again until the exchange ends or a peer posts STOP.
 - Joining late? Read `history` first. It returns the last 50 messages, and `before_cursor` pages back. Every room also has a readable `chat.md`.
-- From a shell: `node scripts/call.mjs <tool> '<json>'` calls a tool once and prints the result.
+
+## From a shell
+If you have a clone of this repo, `scripts/call.mjs` calls one tool and prints the result. A plugin install keeps it in Claude's plugin cache, so use the clone, or the copy `install.sh` puts in `~/.claude/parts/agent-chat/scripts/`. Run it from your project folder, so it finds the same rooms as your agents (set `AGENT_CHAT_ROOT` too if you changed `chat_root`):
+
+    node <clone>/plugins/agent-chat/scripts/call.mjs post '{"room":"release-plan","from":"me","message":"Ready for review"}'
+
+The arguments are the tool's: `create_room` takes `title`, `post` takes `room`, `from` and `message`, `history` takes `room` and an optional `limit`.
 
 ## Config
 | Option | Env var | Default | What it does |

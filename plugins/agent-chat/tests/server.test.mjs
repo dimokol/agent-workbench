@@ -466,6 +466,10 @@ describe('call.mjs helper', () => {
     const rooms = JSON.parse(run('list_rooms'))
     assert.equal(rooms[0].room, 'from-shell')
     assert.throws(() => run('post', '{"room":"from-shell"}'), (e) => e.status === 1)
+    // The example in the README.
+    const posted = JSON.parse(run('post', '{"room":"release-plan","from":"me","message":"Ready for review"}'))
+    assert.equal(posted.room, 'release-plan')
+    assert.equal(posted.cursor, 1)
   })
 })
 
