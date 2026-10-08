@@ -119,49 +119,170 @@ check_main() {
   deny "Blocked: git $sub in the main checkout ($MAIN). $LOCKED is testing there (the QA lock), so its branch and files stay put while the dev servers run from it. Work in a worktree instead (git worktree add <path> <branch>). If the person testing asks for this, rerun it starting with QA_BRANCH_ALLOW=1."
 }
 
-# Split on shell separators (after joining line continuations) and check every
-# git push / checkout / switch / reset / stash, following `cd` and `git -C`.
-segs=$(printf '%s\n' "$cmd" |
-  awk '{ if (sub(/\\$/, "")) { b = b $0 " "; next } print b $0; b = "" } END { if (b != "") print b }' |
-  awk '{ gsub(/&&|\|\||[;|&()`]/, "\n"); print }' | tr -d "\"'")
-dir=$cwd
-while IFS= read -r seg; do
-  set -- $seg
-  allow=""
-  while [ $# -gt 0 ]; do # skip assignments and wrappers (env, bash -c, eval, xargs ...)
-    case "$1" in
-      QA_BRANCH_ALLOW=1) allow=1 ;;
-      [A-Za-z_]*=* | env | command | exec | nohup | time | sudo | bash | sh | zsh | eval | xargs | -*) ;;
-      *) break ;;
-    esac
-    shift
-  done
-  [ $# -gt 0 ] || continue
-  case "$1" in
-    cd | pushd) dir=$(absdir "$dir" "${2:-$HOME}"); continue ;;
-    git | */git) shift ;;
-    *) continue ;;
-  esac
-  gdir=$dir
+# Splits a command line the way the shell would: one line per simple command,
+# words separated by \037 (a newline inside a word becomes \036). Quotes and
+# backslashes are removed, so a quoted path with a space stays one word. A
+# $(...) or backtick leaves "$" in its word and its commands come out on lines
+# of their own. Redirections, comments and heredoc bodies are dropped, except a
+# heredoc that a shell reads (bash <<EOF), whose lines are commands.
+split_command() {
+  printf '%s\n' "$1" | LC_ALL=C awk '
+    function add(ch) { word = word (ch == "\n" ? RSEP : ch); inword = 1 }
+    function flush() {
+      if (inword) {
+        if (skip) skip = 0
+        else { seg = seg (nw ? USEP : "") word; nw++ }
+      }
+      word = ""; inword = 0
+    }
+    function endseg() { flush(); if (nw) print seg; seg = ""; nw = 0; skip = 0 }
+    function opensub(closer) {
+      add("$")
+      sseg[d] = seg; snw[d] = nw; sword[d] = word; sinw[d] = inword; sq[d] = q; sskip[d] = skip
+      d++; kind[d] = closer; pd[d] = 0
+      seg = ""; nw = 0; word = ""; inword = 0; q = ""; skip = 0
+    }
+    function closesub() {
+      endseg(); d--
+      seg = sseg[d]; nw = snw[d]; word = sword[d]; inword = sinw[d]; q = sq[d]; skip = sskip[d]
+    }
+    function heredoc(   dash, delim, ch, fw) { # at the "<<"; reads its delimiter
+      i++
+      if (substr(src, i + 1, 1) == "-") { dash = 1; i++ }
+      while (substr(src, i + 1, 1) ~ /[ \t]/) i++
+      while (i < n) {
+        ch = substr(src, i + 1, 1)
+        if (ch ~ /[ \t\n;&|<>()]/) break
+        if (ch != SQ && ch != "\"" && ch != "\\") delim = delim ch
+        i++
+      }
+      fw = nw ? substr(seg, 1, index(seg USEP, USEP) - 1) : word
+      sub(/.*\//, "", fw)
+      nh++; hd[nh] = delim; hdash[nh] = dash; hshell[nh] = (fw ~ /^(ba|z|da|k)?sh$/)
+    }
+    function bodies(   k, nl, line) { # after a newline: skip the pending heredoc bodies
+      for (k = 1; k <= nh; k++) {
+        if (hshell[k]) break # a shell runs this body: read it as commands
+        while (i < n) {
+          nl = index(substr(src, i + 1), "\n")
+          line = nl ? substr(src, i + 1, nl - 1) : substr(src, i + 1)
+          i = nl ? i + nl : n
+          if (hdash[k]) sub(/^\t+/, "", line)
+          if (line == hd[k]) break
+        }
+      }
+      nh = 0
+    }
+    BEGIN { USEP = sprintf("%c", 31); RSEP = sprintf("%c", 30); SQ = sprintf("%c", 39) }
+    { src = src $0 "\n" }
+    END {
+      n = length(src); d = 0; q = ""; seg = ""; nw = 0; word = ""; inword = 0; skip = 0; nh = 0
+      for (i = 1; i <= n; i++) {
+        c = substr(src, i, 1)
+        if (q == SQ) { if (c == SQ) q = ""; else add(c); continue }
+        if (c == "\\") {
+          i++; c = substr(src, i, 1)
+          if (c == "\n") continue # line continuation
+          if (q == "\"" && index("$`\"\\", c) == 0) add("\\")
+          add(c); continue
+        }
+        if (c == "`" && d > 0 && kind[d] == "`") { closesub(); continue }
+        if (c == "`") { opensub("`"); continue }
+        if (c == "$" && substr(src, i + 1, 1) == "(") { i++; opensub(")"); continue }
+        if (q == "\"") { if (c == "\"") q = ""; else add(c); continue }
+        if (c == SQ || c == "\"") { q = c; inword = 1; continue }
+        if (c == "#" && !inword) { while (i < n && substr(src, i + 1, 1) != "\n") i++; continue }
+        if (c == " " || c == "\t") { flush(); continue }
+        if (c == "\n") { endseg(); bodies(); continue }
+        if (c == "<" || c == ">" || (c == "&" && substr(src, i + 1, 1) == ">")) {
+          if (inword && word ~ /^[0-9]+$/) { word = ""; inword = 0 } else flush() # the fd in 2>&1
+          op = substr(src, i, 3)
+          if (op ~ /^<<</) { i += 2; skip = 1 }
+          else if (op ~ /^<</) heredoc()
+          else { if (op ~ /^&>>/) i += 2; else if (op ~ /^(&>|>>|>&|<&|>\||<>)/) i++; skip = 1 }
+          continue
+        }
+        if (c == ";" || c == "|" || c == "&") { endseg(); continue }
+        if (c == "(") { pd[d]++; endseg(); continue }
+        if (c == ")") {
+          if (d > 0 && pd[d] == 0 && kind[d] == ")") { closesub(); continue }
+          if (pd[d] > 0) pd[d]--
+          endseg(); continue
+        }
+        add(c)
+      }
+      endseg()
+      while (d > 0) closesub()
+    }'
+}
+
+# The script a shell runs with -c, or nothing for a script file or stdin.
+shell_script() {
+  local has_c=""
+  shift
   while [ $# -gt 0 ]; do
     case "$1" in
-      -C) gdir=$(absdir "$gdir" "${2:-.}"); shift ;;
-      -c | --git-dir | --work-tree | --namespace) shift ;;
-      -*) ;;
-      *) break ;;
+      -o | +o) shift ;;
+      --*) ;;
+      [-+]*) case "$1" in -*c*) has_c=1 ;; esac ;;
+      *) [ -n "$has_c" ] && printf '%s' "$1"; return ;;
     esac
     [ $# -gt 0 ] && shift
   done
-  [ $# -gt 0 ] || continue
-  sub=$1; shift
-  case "$sub" in push | checkout | switch | reset | stash) ;; *) continue ;; esac
-  repo_ctx "$gdir" || continue
-  if [ "$sub" = push ]; then
-    check_push "$@"
-  elif [ -n "$LOCKED" ] && [ "$TOP" = "$MAIN" ]; then
-    check_main "$sub" "$@"
-  fi
-done <<EOF
-$segs
+}
+
+# Checks every git push / checkout / switch / reset / stash in a command line,
+# following `cd`, `git -C`, `sh -c` and `eval`. $2 is an override inherited from
+# the command that ran this line (QA_BRANCH_ALLOW=1 bash -c '...').
+check_line() {
+  local seg words inherit=${2:-} script
+  while IFS= read -r seg; do
+    IFS=$'\037' read -r -a words <<<"$seg"
+    set -- "${words[@]}"
+    allow=$inherit
+    while [ $# -gt 0 ]; do # skip assignments and wrappers (env, xargs ...)
+      case "$1" in
+        QA_BRANCH_ALLOW=1) allow=1 ;;
+        [A-Za-z_]*=* | env | command | exec | nohup | time | sudo | xargs | -*) ;;
+        *) break ;;
+      esac
+      shift
+    done
+    [ $# -gt 0 ] || continue
+    case "$1" in
+      cd | pushd) dir=$(absdir "$dir" "${2:-$HOME}"); continue ;;
+      bash | sh | zsh | dash | */bash | */sh | */zsh | */dash)
+        script=$(shell_script "$@")
+        [ -n "$script" ] && check_line "${script//$'\036'/$'\n'}" "$allow"
+        continue ;;
+      eval) shift; check_line "${*//$'\036'/$'\n'}" "$allow"; continue ;;
+      git | */git) shift ;;
+      *) continue ;;
+    esac
+    gdir=$dir
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -C) gdir=$(absdir "$gdir" "${2:-.}"); shift ;;
+        -c | --git-dir | --work-tree | --namespace) shift ;;
+        -*) ;;
+        *) break ;;
+      esac
+      [ $# -gt 0 ] && shift
+    done
+    [ $# -gt 0 ] || continue
+    sub=$1; shift
+    case "$sub" in push | checkout | switch | reset | stash) ;; *) continue ;; esac
+    repo_ctx "$gdir" || continue
+    if [ "$sub" = push ]; then
+      check_push "$@"
+    elif [ -n "$LOCKED" ] && [ "$TOP" = "$MAIN" ]; then
+      check_main "$sub" "$@"
+    fi
+  done <<EOF
+$(split_command "$1")
 EOF
+}
+
+dir=$cwd
+check_line "$cmd"
 exit 0
