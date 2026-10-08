@@ -140,6 +140,12 @@ t none 'npm explain jest'
 t none 'pnpm why vitest'
 t none 'npm uninstall jest'
 t none 'yarn info jest'
+t tests 'bun test add utils'
+t tests 'pnpm --filter info test'
+t tests 'npm test -- ls src'
+t tests 'npm test -- --grep add item'
+t e2e 'npm run e2e -- --grep add item'
+t build 'npm run build -- --ls'
 
 echo "== docker compose: only the subcommand decides =="
 t none 'docker compose exec app npm run lint'

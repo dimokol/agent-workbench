@@ -106,6 +106,18 @@ compose_kind() { # words of a docker compose line
   esac
 }
 
+pm_subcommand() { # first word after npm, pnpm, yarn or bun that isn't an option or its value
+  set -- $1
+  shift
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --filter|-F|-C|--dir|--workspace|--prefix|--cwd) shift; [ $# -gt 0 ] && shift ;;
+      -*) shift ;;
+      *) printf '%s' "$1"; return ;;
+    esac
+  done
+}
+
 classify_line() {
   case "$1" in
     # Light, always allowed: browser-free unit runners and commands that free memory.
@@ -125,11 +137,14 @@ classify_line() {
   query=""
   case "$1" in
     "npm "*|"pnpm "*|"yarn "*|"bun "*)
+      # Asking about a package, or removing one, runs nothing. Only the subcommand
+      # counts: `bun test add utils` is a test run.
+      case $(pm_subcommand "$1") in
+        view|info|search|why|explain|help|ls|add|remove|uninstall) query=1 ;;
+      esac
       case "$1" in
-        # Asking about a package, or removing one, runs nothing.
-        *" view "*|*" info "*|*" search "*|*" why "*|*" explain "*|*" help "*|*" ls "*|*" add "*|*" remove "*|*" uninstall "*) query=1 ;;
-        *" build"|*" build "*|*" build:"*) echo build; return ;;
-        *" e2e"|*" e2e "*|*" e2e:"*) echo e2e; return ;;
+        *" build"|*" build "*|*" build:"*) [ -n "$query" ] || { echo build; return; } ;;
+        *" e2e"|*" e2e "*|*" e2e:"*) [ -n "$query" ] || { echo e2e; return; } ;;
       esac ;;
   esac
   if [ -z "$query" ]; then
