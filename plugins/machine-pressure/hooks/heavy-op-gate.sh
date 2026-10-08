@@ -81,14 +81,25 @@ case $extra in
   *) extra=$(printf '%s' "$extra" | tr ',' '\n') ;;
 esac
 
+# Only compose subcommands that start or build containers are heavy. The rest
+# (exec, logs, ps, down, cp ...) read, attach or free memory.
 compose_kind() { # words of a docker compose line
-  for w in $1; do
-    case $w in up|build|run|create|start|restart|pull|watch) echo heavy; return ;; esac
+  set -- $1
+  shift
+  [ "${1:-}" = compose ] && shift
+  while [ $# -gt 0 ]; do
+    case $1 in
+      -f|--file|-p|--project-name|--profile|--env-file|--project-directory|--ansi|--progress|--parallel)
+        shift; [ $# -gt 0 ] && shift ;;
+      -*) shift ;;
+      *) break ;;
+    esac
   done
-  for w in $1; do
-    case $w in down|stop|kill|ps|logs|ls|config|rm|images|port|top|version|events) echo light; return ;; esac
-  done
-  echo heavy
+  case ${1:-} in
+    '') echo heavy ;; # the line was cut off before the subcommand
+    up|build|run|create|start|restart|pull|watch|scale) echo heavy ;;
+    *) echo light ;;
+  esac
 }
 
 classify_line() {
@@ -149,7 +160,9 @@ fi
 pat=""; xpat=""
 case $class in
   e2e)     pat='playwright test|cypress run|test:e2e|e2e:up|e2e[.]sh'; xpat='playwright[.]unit|test:unit' ;;
-  docker)  pat='docker[ -]compose.* (up|build|run|create|pull|start|restart)( |$)|docker (buildx )?build|docker buildx|docker run' ;;
+  # A compose line counts by its subcommand (the heavy list in compose_kind), read past
+  # global options, so `docker compose exec app npm run build` is not a run.
+  docker)  pat='docker[ -]compose( compose)?( +-[^ ]+( +[^ -][^ ]*)?)* +(up|build|run|create|start|restart|pull|watch|scale)( |$)|docker (buildx )?build|docker buildx|docker run' ;;
   install) pat='npm (install|ci)|npm i( |$)|pnpm (install|i)( |$)|yarn install|bun install|yarn$' ;;
   build)   pat='npm run build|pnpm (run )?build|yarn build|next build|tsc (--build|-b)|cargo build|vite build|turbo (run )?build|mvn .*package|gradlew? .*build' ;;
   tests)   pat='vitest|jest|npm test|npm run test|pnpm test|yarn test|pytest|cargo test|go test|turbo (run )?test|mvn .*test|gradlew? .*test' ;;

@@ -33,7 +33,7 @@ Other modes: `--json`, `--field cpu|ram|swap|load|disk|level`. Level is OK, AMBE
 | `max_parallel_heavy` | `MACHINE_PRESSURE_MAX_PARALLEL_HEAVY` | 1 | Concurrent e2e or docker runs |
 | `extra_heavy_patterns` | `MACHINE_PRESSURE_EXTRA_HEAVY_PATTERNS` | none | Regexes (comma separated in the env var) for more gated commands |
 
-Each setting comes from the plugin option, then the env var (`settings.json` `env`; the statusline script reads only that), then the default. Gated: installs, builds and test runners (npm, pnpm, yarn, bun, workspace forms, pytest, cargo, go, turbo, make, mvn, gradle), e2e (playwright, cypress, `test:e2e*`), docker run/build/compose up. Anything else: `extra_heavy_patterns`. Commands that free memory (`docker compose down`, `e2e:down`) and quoted text never match. To run one command anyway, start it with `PRESSURE_ALLOW=1 `. An attached long-running `docker run` (an `-it` shell) holds the docker slot until it exits.
+Each setting comes from the plugin option, then the env var (`settings.json` `env`; the statusline script reads only that), then the default. Gated: installs, builds and test runners (npm, pnpm, yarn, bun, workspace forms, pytest, cargo, go, turbo, make, mvn, gradle), e2e (playwright, cypress, `test:e2e*`), docker run/build and compose up/build/run/start. Anything else: `extra_heavy_patterns`. Compose commands that don't start containers (`exec`, `logs`, `down`), `e2e:down` and quoted text never match. To run one command anyway, start it with `PRESSURE_ALLOW=1 `. An attached long-running `docker run` (an `-it` shell) holds the docker slot until it exits.
 
 ## Turn it off
 

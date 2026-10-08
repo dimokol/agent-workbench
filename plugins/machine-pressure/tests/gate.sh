@@ -93,6 +93,14 @@ expect_deny "second docker run is denied" 'docker compose up' 'already active'
 expect_allow "docker down is never capped" 'docker compose down'
 set_ps "  1 0 /sbin/launchd" " 710 1 docker compose logs -f"
 expect_allow "docker logs is not a run" 'docker compose up'
+set_ps "  1 0 /sbin/launchd" " 700 1 docker compose up"
+expect_allow "compose exec runs beside an attached up" 'docker compose exec app rails db:migrate'
+expect_allow "compose exec with npm run in it" 'docker compose exec app npm run lint'
+expect_allow "compose exec into a database" 'docker compose exec db psql -U postgres'
+set_ps "  1 0 /sbin/launchd" " 720 1 docker compose exec app npm run build"
+expect_allow "a running compose exec is not a run" 'docker compose up'
+set_ps "  1 0 /sbin/launchd" " 730 1 /opt/docker/cli-plugins/docker-compose compose -f a.yml up"
+expect_deny "the compose plugin process counts" 'docker compose up' 'already active'
 set_ps "  1 0 /sbin/launchd"
 expect_allow "no runs: allowed" 'npx playwright test'
 
