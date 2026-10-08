@@ -27,4 +27,4 @@ Without the plugin system: copy `skills/pr-review-loop/` into `.claude/skills/` 
 `claude plugin disable pr-review-loop@dimokol`
 
 ## Requirements
-GitHub, `gh` logged in as someone other than the reviewer, git with worktrees, bash. Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Script tests: `bash tests/run.sh` (needs jq).
+GitHub, `gh` logged in as someone other than the reviewer, git with worktrees, bash. Tests pass on macOS and Linux in CI, and day-to-day use so far is on macOS. Script tests: `bash tests/run.sh` (needs jq).

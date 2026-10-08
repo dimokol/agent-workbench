@@ -42,4 +42,4 @@ Each setting comes from the plugin option, then the env var (`settings.json` `en
 
 ## Requirements
 
-Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Needs `sh`, `awk`, and `jq` for the gate (without jq it allows everything and says so once). Other systems report UNKNOWN. Where `ps` lacks `-A -o pid=,ppid=,command=` (busybox), the parallel cap does nothing.
+Tests pass on macOS and Linux in CI, and day-to-day use so far is on macOS. Needs `sh`, `awk`, and `jq` for the gate (without jq it allows everything and says so once). Other systems report UNKNOWN. Where `ps` lacks `-A -o pid=,ppid=,command=` (busybox), the parallel cap does nothing.

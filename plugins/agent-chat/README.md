@@ -48,4 +48,4 @@ Two repos with the same folder name get separate subfolders (the second one gets
 `claude plugin disable agent-chat@dimokol`
 
 ## Requirements
-Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Tests ran on Node 24; it needs a Node with `node:test` and ES modules (18+).
+Tests pass on macOS and Linux in CI, and day-to-day use so far is on macOS. It needs a Node with `node:test` and ES modules (18+).

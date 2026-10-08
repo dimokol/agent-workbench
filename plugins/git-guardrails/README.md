@@ -30,4 +30,4 @@ To let one approved command through, the agent writes `GIT_GUARDRAILS_ALLOW=1` d
 [mattpocock/skills](https://github.com/mattpocock/skills) has a git-guardrails skill with the same aim.
 
 ## Requirements
-Node 18 or newer on `PATH` (without it, commands pass and the hook says so once per session) and `git`. Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Tests: `node --test tests/*.test.mjs` from this folder.
+Node 18 or newer on `PATH` (without it, commands pass and the hook says so once per session) and `git`. Tests pass on macOS and Linux in CI, and day-to-day use so far is on macOS. Tests: `node --test tests/*.test.mjs` from this folder.

@@ -27,4 +27,4 @@ Start with `qa-branch.sh init`, then `add <pr>`, `rebuild`, and `checklist` for 
 `claude plugin disable integration-branch-qa@dimokol`
 
 ## Requirements
-Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Needs bash 3.2+ and git. gh and jq for `add` and `check-pr`; node 18+ for the checklist page. Without jq the hook lets everything through and says so once. PRs from forks can't be queued. Tests: `bash tests/run.sh`.
+Tests pass on macOS and Linux in CI, and day-to-day use so far is on macOS. Needs bash 3.2+ and git. gh and jq for `add` and `check-pr`; node 18+ for the checklist page. Without jq the hook lets everything through and says so once. PRs from forks can't be queued. Tests: `bash tests/run.sh`.
