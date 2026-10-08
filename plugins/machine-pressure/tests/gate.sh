@@ -62,6 +62,19 @@ expect_allow "broken probe output: allowed" 'npm install'
 rm -f "$WORK/probe.json"
 expect_allow "missing probe output: allowed" 'npm install'
 
+echo "== the probe runs in the session's folder =="
+mkdir -p "$WORK/small disk"
+printf '#!/bin/sh\ncase $(pwd) in *"/small disk") l=RED ;; *) l=OK ;; esac\nprintf "{\\"level\\":\\"%%s\\",\\"mem_pressure\\":\\"normal\\"}\\n" "$l"\n' > "$WORK/cwdprobe.sh"
+incwd() { # dir -> hook stdout for npm install run from dir
+  jq -nc --arg d "$1" '{cwd:$d,tool_input:{command:"npm install"}}' | \
+    env PATH="$WORK/bin:$PATH" TMPDIR="$WORK/tmp" PRESSURE_PROBE="$WORK/cwdprobe.sh" sh "$H"
+}
+out=$(incwd "$WORK/small disk")
+if [ "$(decision "$out")" = deny ]; then ok "the probe reads the cwd from the hook input"; else bad "the probe reads the cwd from the hook input" "$out"; fi
+if printf '%s' "$out" | grep -q 'memory pressure normal'; then ok "the reason carries the memory pressure"; else bad "the reason carries the memory pressure" "$out"; fi
+out=$(incwd "$WORK")
+if [ -z "$out" ]; then ok "another cwd reads another disk"; else bad "another cwd reads another disk" "$out"; fi
+
 echo "== override must be a leading assignment =="
 set_level RED
 expect_allow "PRESSURE_ALLOW=1 first" 'PRESSURE_ALLOW=1 npm install'

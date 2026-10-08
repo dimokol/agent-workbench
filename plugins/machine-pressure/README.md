@@ -1,6 +1,6 @@
 # machine-pressure
 
-A gate refuses a second e2e or docker run, and any heavy command while CPU, RAM, swap or disk is RED. A probe script feeds your statusline.
+A gate refuses a second e2e or docker run, and any heavy command while CPU, memory, load or free disk is RED. A probe script feeds your statusline.
 
 ## Install
 
@@ -26,9 +26,9 @@ Other modes: `--json`, `--field cpu|ram|swap|load|disk|level`. Level is OK, AMBE
 | Option | Env var | Default | What it does |
 | --- | --- | --- | --- |
 | `cpu_amber`, `cpu_red` | `MACHINE_PRESSURE_CPU_AMBER`, `_CPU_RED` | 85, 97 | CPU % of all cores |
-| `ram_amber`, `ram_red` | `MACHINE_PRESSURE_RAM_AMBER`, `_RAM_RED` | 85, 93 | RAM in use, % |
-| `swap_amber`, `swap_red` | `MACHINE_PRESSURE_SWAP_AMBER`, `_SWAP_RED` | 70, 90 | Swap in use, % |
-| `disk_amber_gb`, `disk_red_gb` | `MACHINE_PRESSURE_DISK_AMBER_GB`, `_DISK_RED_GB` | 20, 10 | Free GB on `/` |
+| `ram_amber`, `ram_red` | `MACHINE_PRESSURE_RAM_AMBER`, `_RAM_RED` | 85, 93 | RAM in use, %. On macOS the kernel's memory pressure also counts: warn is AMBER, critical is RED |
+| `swap_amber`, `swap_red` | `MACHINE_PRESSURE_SWAP_AMBER`, `_SWAP_RED` | 70, 90 | Swap in use, %, Linux only. macOS keeps pages in swap long after the pressure is gone, so there swap is shown without a color and never sets the level |
+| `disk_amber_gb`, `disk_red_gb` | `MACHINE_PRESSURE_DISK_AMBER_GB`, `_DISK_RED_GB` | 20, 10 | Free GB on the disk that holds the current folder |
 | `load_amber_x`, `load_red_x` | `MACHINE_PRESSURE_LOAD_AMBER_X`, `_LOAD_RED_X` | 1.5, 3 | 1-min load, times core count |
 | `max_parallel_heavy` | `MACHINE_PRESSURE_MAX_PARALLEL_HEAVY` | 1 | Concurrent e2e or docker runs |
 | `extra_heavy_patterns` | `MACHINE_PRESSURE_EXTRA_HEAVY_PATTERNS` | none | Regexes (comma separated in the env var) for more gated commands |

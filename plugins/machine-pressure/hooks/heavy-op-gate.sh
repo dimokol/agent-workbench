@@ -217,10 +217,13 @@ max=$(cfg max_parallel_heavy 1)
 case $max in ''|*[!0-9]*) max=1 ;; esac
 [ "$max" -ge 1 ] || max=1
 
-pj=$(sh "$PROBE" --json 2>/dev/null)
+# The probe reads free disk where it runs, so run it in the session's folder.
+dir=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
+case $PROBE in /*) ;; *) PROBE=$PWD/$PROBE ;; esac
+pj=$(cd "${dir:-.}" 2>/dev/null; sh "$PROBE" --json 2>/dev/null)
 level=$(printf '%s' "$pj" | jq -r '.level // "UNKNOWN"' 2>/dev/null); level=${level:-UNKNOWN}
 summary=$(printf '%s' "$pj" | jq -r 'def v(x): if x == null then "n/a" else (x|tostring) end;
-  "CPU \(v(.cpu_pct))%, RAM \(v(.ram_pct))%, swap \(v(.swap_pct))%, load \(v(.load1)), disk \(v(.disk_free_gb)) GB free"' 2>/dev/null)
+  "CPU \(v(.cpu_pct))%, RAM \(v(.ram_pct))%\(if .mem_pressure then " (memory pressure \(.mem_pressure))" else "" end), swap \(v(.swap_pct))%, load \(v(.load1)), disk \(v(.disk_free_gb)) GB free"' 2>/dev/null)
 [ -n "$summary" ] || summary="no machine reading"
 
 emit() { # deny|warn, message

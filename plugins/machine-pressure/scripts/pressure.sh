@@ -12,17 +12,20 @@
 # level is UNKNOWN, never RED.
 #
 # Platforms: macOS (sysctl, vm_stat, ps, df) and Linux (/proc, df). Anything
-# else reports UNKNOWN.
+# else reports UNKNOWN. On macOS the kernel's memory pressure level
+# (kern.memorystatus_vm_pressure_level: warn is AMBER, critical is RED) counts
+# with RAM, and swap is shown without setting the level: macOS grows swap on
+# demand and keeps pages in it long after the pressure is gone.
 #
-# One sample is cached for 4 seconds under $TMPDIR, so several statusline
-# widgets rendered together share one reading.
+# One sample per folder is cached for 4 seconds under $TMPDIR, so several
+# statusline widgets rendered together share one reading.
 #
 # Thresholds are read from CLAUDE_PLUGIN_OPTION_<KEY> (set by the plugin), then
 # MACHINE_PRESSURE_<KEY> (set by hand in settings.json "env"), then the default:
 #   CPU_AMBER 85, CPU_RED 97         percent of all cores in use
 #   RAM_AMBER 85, RAM_RED 93         percent of RAM in use (not available)
-#   SWAP_AMBER 70, SWAP_RED 90       percent of swap in use
-#   DISK_AMBER_GB 20, DISK_RED_GB 10 free GB on / (lower is worse)
+#   SWAP_AMBER 70, SWAP_RED 90       percent of swap in use (Linux only)
+#   DISK_AMBER_GB 20, DISK_RED_GB 10 free GB on the current folder's disk (lower is worse)
 #   LOAD_AMBER_X 1.5, LOAD_RED_X 3   1-minute load as a multiple of the core count
 #
 # Test hooks: PRESSURE_PROC_ROOT (fake /proc), PRESSURE_CACHE_TTL (seconds).
@@ -40,19 +43,21 @@ cfg() { # key default
 OS=$(uname -s 2>/dev/null || echo unknown)
 TMP=${TMPDIR:-/tmp}; TMP=${TMP%/}
 UIDN=$(id -u 2>/dev/null || echo 0)
-CACHE="$TMP/machine-pressure-$UIDN.cache"
+# Keyed by folder: free disk depends on where the probe runs.
+DIRKEY=$(pwd -P 2>/dev/null | cksum 2>/dev/null); DIRKEY=${DIRKEY%% *}
+CACHE="$TMP/machine-pressure-$UIDN-${DIRKEY:-0}.cache"
 CPUSTATE="$TMP/machine-pressure-$UIDN.cpu"
 TTL=${PRESSURE_CACHE_TTL:-4}
 case $TTL in ''|*[!0-9]*) TTL=4 ;; esac
 
-cpu=""; ram=""; swap=""; load1=""; disk=""; cores=""
+cpu=""; ram=""; swap=""; load1=""; disk=""; cores=""; mem=""
 
 isnum() { case $1 in ''|*[!0-9.]*|*.*.*|.) return 1 ;; esac; return 0; }
 
 # ---- samplers: each sets its variables, or leaves them empty on any failure ----
 
 sample_disk() {
-  disk=$(df -P -k / 2>/dev/null | awk 'NR==2 && $4 ~ /^[0-9]+$/ {printf "%.1f", $4/1048576}')
+  disk=$(df -P -k . 2>/dev/null | awk 'NR==2 && $4 ~ /^[0-9]+$/ {printf "%.1f", $4/1048576}')
 }
 
 sample_darwin() {
@@ -82,6 +87,10 @@ sample_darwin() {
     { if (match($0,/total = [0-9.]+/)) t=substr($0,RSTART+8,RLENGTH-8)
       if (match($0,/used = [0-9.]+/))  u=substr($0,RSTART+7,RLENGTH-7) }
     END { if (t=="" || u=="") exit; printf "%d", (t+0<=0)?0:(u/t)*100 }')
+
+  # 1 normal, 2 warn, 4 critical
+  mem=$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null)
+  case $mem in ''|*[!0-9]*|0) mem="" ;; esac
 }
 
 linux_cpu_counters() { # prints "idle total" from the aggregate cpu line
@@ -133,19 +142,19 @@ undash() { if [ "$1" = "-" ]; then printf ''; else printf '%s' "$1"; fi; }
 
 load_cache() {
   [ -r "$CACHE" ] || return 1
-  read -r c_ts c_cpu c_ram c_swap c_load c_disk c_cores < "$CACHE" 2>/dev/null || return 1
+  read -r c_ts c_cpu c_ram c_swap c_load c_disk c_cores c_mem < "$CACHE" 2>/dev/null || return 1
   case ${c_ts:-x} in *[!0-9]*) return 1 ;; esac
-  [ -n "${c_cores:-}" ] || return 1
+  [ -n "${c_mem:-}" ] || return 1
   age=$(( $(date +%s) - c_ts ))
   [ "$age" -ge 0 ] && [ "$age" -lt "$TTL" ] || return 1
   cpu=$(undash "$c_cpu"); ram=$(undash "$c_ram"); swap=$(undash "$c_swap")
-  load1=$(undash "$c_load"); disk=$(undash "$c_disk"); cores=$(undash "$c_cores")
+  load1=$(undash "$c_load"); disk=$(undash "$c_disk"); cores=$(undash "$c_cores"); mem=$(undash "$c_mem")
   return 0
 }
 
 store_cache() {
-  printf '%s %s %s %s %s %s %s\n' "$(date +%s)" "$(dash "$cpu")" "$(dash "$ram")" "$(dash "$swap")" \
-    "$(dash "$load1")" "$(dash "$disk")" "$(dash "$cores")" > "$CACHE.$$" 2>/dev/null \
+  printf '%s %s %s %s %s %s %s %s\n' "$(date +%s)" "$(dash "$cpu")" "$(dash "$ram")" "$(dash "$swap")" \
+    "$(dash "$load1")" "$(dash "$disk")" "$(dash "$cores")" "$(dash "$mem")" > "$CACHE.$$" 2>/dev/null \
     && mv -f "$CACHE.$$" "$CACHE" 2>/dev/null
   rm -f "$CACHE.$$" 2>/dev/null
   return 0
@@ -157,7 +166,7 @@ if ! load_cache; then
     Linux)  sample_linux;  sample_disk ;;
     *) ;;
   esac
-  for _v in cpu ram swap load1 disk cores; do
+  for _v in cpu ram swap load1 disk cores mem; do
     eval "isnum \"\$$_v\"" || eval "$_v="
   done
   store_cache
@@ -182,7 +191,13 @@ lvl_low() { # value amber red, lower is worse
 
 s_cpu=$(lvl "$cpu" "$CPU_AMBER" "$CPU_RED")
 s_ram=$(lvl "$ram" "$RAM_AMBER" "$RAM_RED")
+if [ -n "$mem" ]; then # macOS: the worse of RAM in use and the kernel's pressure level
+  s_mem=$(awk -v m="$mem" 'BEGIN{print (m>=4)?2:(m>=2)?1:0}')
+  [ "$s_mem" -gt "$s_ram" ] && s_ram=$s_mem
+fi
 s_swap=$(lvl "$swap" "$SWAP_AMBER" "$SWAP_RED")
+# macOS: swap is shown only (-2: no color, no level).
+[ "$OS" = Darwin ] && [ -n "$swap" ] && s_swap=-2
 s_disk=$(lvl_low "$disk" "$DISK_AMBER" "$DISK_RED")
 if [ -n "$load1" ] && [ -n "$cores" ]; then
   la=$(awk -v f="$LOAD_AMBER_X" -v c="$cores" 'BEGIN{printf "%.2f", f*c}')
@@ -208,7 +223,7 @@ esac
 
 if [ -z "${NO_COLOR:-}" ]; then
   RST=$(printf '\033[0m')
-  col_for() { case $1 in 2) printf '\033[31m' ;; 1) printf '\033[33m' ;; 0) printf '\033[32m' ;; *) printf '\033[2m' ;; esac; }
+  col_for() { case $1 in 2) printf '\033[31m' ;; 1) printf '\033[33m' ;; 0) printf '\033[32m' ;; -2) ;; *) printf '\033[2m' ;; esac; }
 else
   RST=""
   col_for() { :; }
@@ -218,7 +233,8 @@ fmt_load() { awk -v v="$1" 'BEGIN{printf "%.1f", v}'; }
 fmt_disk() { awk -v v="$1" 'BEGIN{ if (v<10) printf "%.1fG", v; else printf "%.0fG", v }'; }
 
 seg() { # level text
-  printf '%s%s%s' "$(col_for "$1")" "$2" "$RST"
+  _c=$(col_for "$1")
+  if [ -n "$_c" ]; then printf '%s%s%s' "$_c" "$2" "$RST"; else printf '%s' "$2"; fi
 }
 
 t_cpu="CPU n/a";   [ -n "$cpu" ]   && t_cpu="CPU ${cpu}%"
@@ -229,12 +245,18 @@ t_disk="disk n/a"; [ -n "$disk" ]  && t_disk="disk $(fmt_disk "$disk")"
 t_level="pressure $level"
 
 jnum() { if [ -n "$1" ]; then printf '%s' "$1"; else printf 'null'; fi; }
+case $mem in
+  '') j_mem=null ;;
+  1) j_mem='"normal"' ;;
+  2|3) j_mem='"warn"' ;;
+  *) j_mem='"critical"' ;;
+esac
 
 case "${1:-}" in
   --json)
-    printf '{"level":"%s","verdict":"%s","cpu_pct":%s,"ram_pct":%s,"swap_pct":%s,"load1":%s,"cores":%s,"disk_free_gb":%s}\n' \
+    printf '{"level":"%s","verdict":"%s","cpu_pct":%s,"ram_pct":%s,"swap_pct":%s,"load1":%s,"cores":%s,"disk_free_gb":%s,"mem_pressure":%s}\n' \
       "$level" "$verdict" "$(jnum "$cpu")" "$(jnum "$ram")" "$(jnum "$swap")" "$(jnum "$load1")" \
-      "$(jnum "$cores")" "$(jnum "$disk")"
+      "$(jnum "$cores")" "$(jnum "$disk")" "$j_mem"
     ;;
   --statusline)
     printf '%s | %s | %s | %s | %s | %s\n' "$(seg "$s_cpu" "$t_cpu")" "$(seg "$s_ram" "$t_ram")" \
