@@ -28,7 +28,8 @@ elif [ -n "$here" ] && [ -f "$here/.claude-plugin/marketplace.json" ] && [ -d "$
   src="$here"
 else
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+  : "${tmp:?mktemp failed}"
+  trap 'rm -rf "${tmp:?}"' EXIT
   curl -fsSL "https://codeload.github.com/$REPO/tar.gz/$REF" | tar -xz -C "$tmp" --strip-components=1
   src="$tmp"
 fi
@@ -73,7 +74,7 @@ install_part() {
   if [ -f "$d/hooks/hooks.json" ] || [ -f "$d/.mcp.json" ]; then
     dest="$PARTS_DIR/$part"
     mkdir -p "$PARTS_DIR"
-    rm -rf "$dest.new"; cp -R "$d" "$dest.new"
+    rm -rf "${dest:?}.new"; cp -R "$d" "$dest.new"
     [ -e "$dest" ] && mv "$dest" "$dest.bak.$(date +%Y%m%d%H%M%S)"
     mv "$dest.new" "$dest"
     echo "  files -> $dest"

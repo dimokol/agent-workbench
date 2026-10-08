@@ -353,6 +353,27 @@ allows('B=feat/y; git push origin "$B"', main);
 denies('B=main; B=$(git branch --show-current); git push origin "$B"', main);
 allows('B=main git push origin "$B"');
 
+// Re-review: targets that aren't branch names, and a branch named like a folder.
+const withLog = repo('with-log', 'main');
+const gitIn = (...args) => execFileSync('git', ['-C', withLog, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { stdio: 'ignore' });
+gitIn('commit', '-q', '--allow-empty', '-m', 'init');
+gitIn('branch', 'docs');
+gitIn('checkout', '-q', '-b', 'feat2'); // so @{-1} is main
+mkdirSync(join(withLog, 'docs'));
+for (const cmd of [
+  'git checkout main && git checkout HEAD && git merge x',
+  'git checkout main && git checkout @ && git merge x',
+  'git checkout main && git checkout feat/x && git checkout @{-1} && git merge x',
+  'git checkout main && git checkout other && git checkout - && git merge x',
+  'git checkout main && git switch other && git switch - && git merge x',
+]) denies(cmd);
+denies('git checkout feat/x && git checkout main -- && git merge x', main);
+allows('git checkout main -- notes.md && git merge x');
+denies('git checkout - && git merge x', { cwd: withLog });
+denies('git checkout @{-1} && git merge x', { cwd: withLog });
+allows('git checkout main && git checkout - && git merge main', { cwd: withLog });
+allows('git checkout main && git pull && git checkout docs && git merge main', { cwd: withLog });
+
 test('an internal error lets the command through with a note once per session', () => {
   const env = { CLAUDE_PLUGIN_DATA: join(root, 'state-error') };
   const broken = (session) => ({ session_id: session, get tool_input() { throw new Error('boom'); } });

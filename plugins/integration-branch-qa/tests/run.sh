@@ -14,9 +14,11 @@ GUARD="$ROOT/hooks/qa-branch-guard.sh"
 BASH_BIN=$(command -v bash)
 for t in git jq node curl; do command -v "$t" >/dev/null 2>&1 || { echo "tests need $t"; exit 2; }; done
 T=$(mktemp -d "${TMPDIR:-/tmp}/qa-test.XXXXXX")
-T=$(cd "$T" && pwd -P)
+: "${T:?mktemp failed}"
+T=$(cd "${T:?}" && pwd -P)
+: "${T:?}"
 SERVER_PID=""
-trap '[ -z "$SERVER_PID" ] || kill "$SERVER_PID" 2>/dev/null; rm -rf "$T"' EXIT
+trap '[ -z "$SERVER_PID" ] || kill "$SERVER_PID" 2>/dev/null; rm -rf "${T:?}"' EXIT
 
 # Keep this machine's git config and settings out of the fixtures.
 for v in $(env | sed -n 's/^\(INTEGRATION_BRANCH_QA_[A-Z_]*\)=.*/\1/p'); do unset "$v"; done
@@ -259,6 +261,12 @@ out=$(qa status)
 has "status lists PRs merged in but no longer queued" "$out" "no longer queued"
 matches "it names the branch" "$out" '^  feat-b$'
 
+before=$(git -C "$W" rev-parse qa-integration)
+out=$(cd "$W" && TMPDIR="$T/no-such-dir" "$BASH_BIN" "$QA" rebuild 2>&1); code=$?
+is "rebuild stops when it can't make a temp folder" "$code" 2
+has "it says why" "$out" "could not create a temp folder"
+is "and changes nothing" "$(git -C "$W" rev-parse qa-integration)" "$before"
+
 echo "# checklist page"
 (cd "$W" && exec "$BASH_BIN" "$QA" checklist) >"$T/server.log" 2>&1 &
 SERVER_PID=$!
@@ -415,6 +423,30 @@ EOF
 allowed "a separator inside quotes is text" "$SP" "echo 'done; git checkout main'"
 denied "a heredoc a shell reads is commands" "$SP" "bash <<'EOF'
 git push origin qa-integration
+EOF"
+denied "a heredoc piped into bash is commands" "$SP" "cat <<'EOF' | bash
+git push origin qa-integration
+EOF"
+denied "a heredoc piped into sh is commands" "$SP" "cat <<'EOF' | sh
+git checkout main
+EOF"
+denied "a heredoc fed to bash after an assignment" "$SP" "X=1 bash <<'EOF'
+git push origin qa-integration
+EOF"
+denied "a heredoc fed to env bash" "$SP" "env bash <<'EOF'
+git checkout main
+EOF"
+denied "a heredoc fed to sudo -u me bash" "$SP" "sudo -u me bash <<'EOF'
+git push origin qa-integration
+EOF"
+denied "the override before bash doesn't reach into its heredoc" "$SP" "QA_BRANCH_ALLOW=1 bash <<'EOF'
+git checkout main
+EOF"
+denied "nor lets the integration branch be pushed" "$SP" "QA_BRANCH_ALLOW=1 bash <<'EOF'
+git push origin qa-integration
+EOF"
+allowed "the override directly before a command in the heredoc counts" "$SP" "bash <<'EOF'
+QA_BRANCH_ALLOW=1 git checkout main
 EOF"
 denied "a command after a heredoc is still read" "$SP" "cat > notes.md <<'EOF'
 notes

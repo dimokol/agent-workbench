@@ -6,6 +6,7 @@ W="$HERE/../skills/pr-review-loop/scripts/watch-reviews.sh"
 P="$HERE/../skills/pr-review-loop/scripts/pr-state.sh"
 command -v jq >/dev/null 2>&1 || { echo "tests need jq"; exit 1; }
 T=$(mktemp -d "${TMPDIR:-/tmp}/pr-review-loop-test.XXXXXX")
+: "${T:?mktemp failed}"
 mkdir "$T/bin"
 passed=0 failed=0 n=0
 
@@ -278,6 +279,6 @@ for args in "o/r 12 $ASK" "--parked" "--bogus o/r 12 $ASK rev" "o/r 12a $ASK rev
 done
 check "state: bad args never call gh" "0" "$(cat "$D/calls.log" 2>/dev/null | wc -l | tr -d ' ')"
 
-rm -rf "$T"
+rm -rf "${T:?}"
 echo "$passed passed, $failed failed"
 [ "$failed" -eq 0 ]

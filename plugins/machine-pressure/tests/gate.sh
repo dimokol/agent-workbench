@@ -3,7 +3,8 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 H=$HERE/../hooks/heavy-op-gate.sh
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+: "${WORK:?mktemp failed}"
+trap 'rm -rf "${WORK:?}"' EXIT
 mkdir -p "$WORK/bin" "$WORK/tmp" "$WORK/nojq"
 pass=0; fail=0
 
@@ -84,6 +85,8 @@ expect_allow "token directly before the heavy command, after cd" 'cd x && PRESSU
 expect_allow "token after another assignment, after cd" 'cd app && CI=1 PRESSURE_ALLOW=1 npm run build'
 expect_deny "each heavy command needs its own token" 'cd x && PRESSURE_ALLOW=1 npm install && npm run build' 'RED'
 expect_deny "the reason says where the token goes" 'cd app && npm run build' 'directly before the heavy command'
+expect_deny "a heavy command after a lone & is gated" 'sleep 1 & npm install' 'RED'
+expect_deny "the token doesn't reach past a lone &" 'cd x && PRESSURE_ALLOW=1 npm ci & npm run build' 'RED'
 expect_deny "token in a quoted string does not count" 'npm install --message "PRESSURE_ALLOW=1"' 'RED'
 expect_deny "PRESSURE_ALLOW=0 does not count" 'PRESSURE_ALLOW=0 npm install' 'RED'
 expect_deny "PRESSURE_ALLOW=10 does not count" 'PRESSURE_ALLOW=10 npm install' 'RED'
@@ -133,6 +136,13 @@ set_ps "  1 0 /sbin/launchd" " 506 1 docker run -it --rm --name devdb postgres"
 expect_allow "ignore_running_patterns skips a process" 'docker compose up' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=--name.devdb
 expect_allow "ignore_running_patterns as a plugin option array" 'docker compose up' 'CLAUDE_PLUGIN_OPTION_IGNORE_RUNNING_PATTERNS=["x","devdb"]'
 expect_deny "ignore_running_patterns that match nothing" 'docker compose up' 'already active' MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=other
+expect_deny "an invalid ignore pattern keeps the cap on" 'docker compose up' 'already active' 'MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=foo('
+out=$(run 'docker compose up' 'MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=foo(' X_UNUSED=1)
+if printf '%s' "$out" | jq -e '.systemMessage | test("invalid.*foo[(]")' >/dev/null; then ok "an invalid ignore pattern is named in a note"; else bad "an invalid ignore pattern is named in a note" "$out"; fi
+out=$(run 'docker compose up' 'CLAUDE_PLUGIN_OPTION_IGNORE_RUNNING_PATTERNS=["foo(","devdb"]' X_UNUSED=1)
+if [ "$(decision "$out")" = none ] && printf '%s' "$out" | jq -e '.systemMessage | test("foo[(]")' >/dev/null; then ok "the valid patterns beside it still apply"; else bad "the valid patterns beside it still apply" "$out"; fi
+set_ps "  1 0 /sbin/launchd" " 400 1 node /app/node_modules/.bin/playwright test e2e/a.spec.ts"
+expect_deny "an invalid ignore pattern keeps the e2e cap on" 'npx playwright test' 'already active' 'MACHINE_PRESSURE_IGNORE_RUNNING_PATTERNS=foo('
 set_ps "  1 0 /sbin/launchd" " 800 1 node /x/node_modules/.bin/playwright test"
 expect_deny "npm run e2e waits for a running playwright" 'npm run e2e' 'already active'
 expect_deny "pnpm e2e waits too" 'pnpm e2e' 'already active'

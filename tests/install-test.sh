@@ -4,7 +4,8 @@
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d)
-trap 'rm -rf "$T"' EXIT
+: "${T:?mktemp failed}"
+trap 'rm -rf "${T:?}"' EXIT
 pass=0 fail=0
 ok() { pass=$((pass + 1)); printf 'ok    %s\n' "$1"; }
 nok() { fail=$((fail + 1)); printf 'FAIL  %s\n' "$1"; [ -z "${2:-}" ] || printf '%s\n' "$2" | sed 's/^/      | /'; }

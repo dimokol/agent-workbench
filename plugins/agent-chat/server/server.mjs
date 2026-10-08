@@ -464,7 +464,9 @@ async function handleToolCall(id, params) {
       const ch = a.channel ? validId(a.channel, 'channel') : null
       let all = readMessages(room).map(({ id: mid, from, to, channel, ts, reply_to, message, seq }) => ({ message_id: mid, from, to, channel: channel || 'main', ts, reply_to: reply_to ?? null, cursor: seq + 1, message }))
       if (ch) all = all.filter((m) => m.channel === ch)
-      if (Number.isFinite(a.before_cursor)) all = all.filter((m) => m.cursor < a.before_cursor)
+      // Clients may send numbers as strings; an empty value means no paging.
+      const before = String(a.before_cursor ?? '').trim() === '' ? NaN : Number(a.before_cursor)
+      if (Number.isFinite(before)) all = all.filter((m) => m.cursor < before)
       const limit = Number(a.limit) > 0 ? Number(a.limit) : HISTORY_LIMIT
       result(id, textResult(JSON.stringify(all.slice(-limit), null, 2)))
       return

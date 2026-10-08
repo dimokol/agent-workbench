@@ -328,9 +328,17 @@ function checkGit(words, ctx) {
   if (verb === 'checkout' || verb === 'switch') {
     // Later commands in the line run on the branch this one leaves checked out:
     // `git checkout main && git merge x` merges into main, though main isn't checked out yet.
-    const target = checkoutTarget(verb, rest, dir, cfg);
-    if (target === undefined) ctx.onBranch.delete(dir); // can't tell, so ask git
-    else if (target !== KEEP) ctx.onBranch.set(dir, target);
+    let target = checkoutTarget(verb, rest, dir, cfg);
+    if (target?.back) target = previousBranch(dir, target.back, ctx);
+    if (target === KEEP) return null;
+    if (target === undefined) { // can't tell, so ask git
+      ctx.onBranch.delete(dir);
+      ctx.history.delete(dir);
+      return null;
+    }
+    const left = checkedOut(dir, ctx);
+    ctx.history.set(dir, [...(ctx.history.get(dir) ?? []), left]); // for `-` and @{-N}
+    ctx.onBranch.set(dir, target);
     return null;
   }
   if (!cfg.blockDestructive) return null;
@@ -347,28 +355,53 @@ function checkGit(words, ctx) {
 const KEEP = Symbol('only files change');
 
 // Where a checkout or switch leaves HEAD: a branch name, null when detached,
-// undefined when the hook can't tell, or KEEP when it only restores files.
+// undefined when the hook can't tell, KEEP when HEAD stays (files only, HEAD, @),
+// or { back: N } for `-` and @{-N}.
 function checkoutTarget(verb, words, dir, cfg) {
   const pos = [];
   let track = false;
+  const dd = words.findIndex((w) => w.text === '--');
+  if (dd >= 0 && dd < words.length - 1) return KEEP; // paths follow `--`; `main --` alone still switches
   for (let k = 0; k < words.length; k++) {
     const a = words[k].text;
+    if (a === '--') continue;
     const made = /^(?:-[bBcC]|--orphan|--create|--force-create)(?:=(.*))?$/s.exec(a);
     if (made) {
       const name = made[1] ?? words[k + 1]?.text;
       return name && !name.includes(MARK) ? name : undefined;
     }
     if (a === '--detach' || (verb === 'switch' && a === '-d')) return null;
-    if (a === '--' || a === '-p' || a === '--patch' || a.startsWith('--pathspec-from-file')) return KEEP;
+    if (a === '-p' || a === '--patch' || a.startsWith('--pathspec-from-file')) return KEEP;
     if (a === '-t' || a.startsWith('--track')) track = true;
     else if (a === '-' || !a.startsWith('-')) pos.push(a);
   }
   if (pos.length !== 1) return KEEP; // `git checkout main file.txt` restores a file
-  if (pos[0] === '-' || pos[0].includes(MARK)) return undefined;
+  if (pos[0] === 'HEAD' || pos[0] === '@') return KEEP;
+  const back = pos[0] === '-' ? '1' : /^@\{-(\d+)\}$/.exec(pos[0])?.[1];
+  if (back) return { back: Number(back) };
+  if (pos[0].includes(MARK)) return undefined;
   const name = track ? pos[0].replace(/^[^/]+\//, '') : pos[0]; // -t origin/x creates x
-  // git reads `git checkout notes.md` as a file restore unless a ref has that name.
-  if (verb === 'checkout' && !isProtected(name, cfg) && existsSync(resolve(dir, pos[0]))) return KEEP;
+  // git reads `git checkout notes.md` as a file restore unless a branch has that name.
+  if (verb === 'checkout' && !isProtected(name, cfg) && existsSync(resolve(dir, pos[0])) && !gitOk(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}`])) return KEEP;
   return name;
+}
+
+const gitOpts = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 };
+function gitOk(dir, args) {
+  try { execFileSync('git', ['-C', dir, ...args], gitOpts); return true; } catch { return false; }
+}
+
+// The branch N switches back: from this command's own switches first, then git's
+// reflog from before it. null when that was a detached HEAD, undefined if unknown.
+function previousBranch(dir, n, ctx) {
+  const seen = ctx.history.get(dir) ?? [];
+  if (n <= seen.length) return seen[seen.length - n];
+  try {
+    const ref = execFileSync('git', ['-C', dir, 'rev-parse', '--symbolic-full-name', `@{-${n - seen.length}}`], gitOpts).trim();
+    return ref.startsWith('refs/heads/') ? ref.slice(11) : ref ? undefined : null;
+  } catch {
+    return undefined;
+  }
 }
 
 function checkPush(argv, branch, cfg) {
@@ -490,7 +523,7 @@ function checkApi(argv, seg, ctx, flags) {
 // Returns the deny reason, or null when the command may run.
 export function check(command, { cwd = process.cwd(), config = loadConfig() } = {}) {
   try {
-    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map(), vars: new Map() }, 0);
+    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map(), history: new Map(), vars: new Map() }, 0);
   } catch (err) {
     if (err !== TOO_DEEP) throw err;
     return deny('a command nested too deeply to check', `past ${MAX_DEPTH} levels of $(...), sh -c or eval the hook stops reading.`);

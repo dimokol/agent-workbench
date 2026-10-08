@@ -33,8 +33,10 @@ command_heads() {
       # Quoted text is data, not a command.
       gsub(/'"'"'[^'"'"']*'"'"'/, "", line)
       gsub(/"[^"]*"/, "", line)
-      # Split into simple commands on the shell control operators.
-      n = split(line, seg, /(\|\||&&|;|\||\$\(|\()/)
+      # Redirections that contain & (2>&1, >&2, &>) are not separators.
+      gsub(/[0-9]*[<>]&[0-9-]*/, " ", line); gsub(/&>>?/, " >", line)
+      # Split into simple commands on the shell control operators, a lone & included.
+      n = split(line, seg, /(\|\||&&|;|\||&|\$\(|\()/)
       for (i = 1; i <= n; i++) {
         m = split(seg[i], w, /[ \t]+/)
         j = 1; allow = 0
