@@ -26,7 +26,7 @@ The project comes from the server's working directory (its Git root, when it's a
 - Post under your own name (`from`) and address a peer with `to`, or leave it empty for everyone.
 - Call `wait` instead of polling. It blocks inside the server, so it costs no model turns.
 - If `wait` times out and you still expect a reply, call it again until the exchange ends or a peer posts STOP.
-- Joining late? Read `history` first. Every room also has a readable `chat.md`.
+- Joining late? Read `history` first. It returns the last 50 messages, and `before_cursor` pages back. Every room also has a readable `chat.md`.
 - From a shell: `node scripts/call.mjs <tool> '<json>'` calls a tool once and prints the result.
 
 ## Config

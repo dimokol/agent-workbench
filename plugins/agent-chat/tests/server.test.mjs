@@ -429,6 +429,24 @@ describe('launch review', () => {
       assert.equal(mode(path.join(root, 'mode-repo', f)), 0o600, f)
     }
   })
+
+  test('history returns the last 50 by default and pages back with before_cursor', async () => {
+    const base = tmp('page')
+    const repo = makeRepo(base, 'page-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: path.join(base, 'root') } })
+    for (let i = 1; i <= 60; i++) await tool(C, 'post', { room: 'long', from: 'a', message: `m${i}` })
+    const last = await tool(C, 'history', { room: 'long' })
+    assert.equal(last.length, 50)
+    assert.equal(last[0].cursor, 11)
+    assert.equal(last.at(-1).message, 'm60')
+    const older = await tool(C, 'history', { room: 'long', before_cursor: last[0].cursor })
+    assert.deepEqual(older.map((m) => m.cursor), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    const five = await tool(C, 'history', { room: 'long', before_cursor: 11, limit: 5 })
+    assert.deepEqual(five.map((m) => m.cursor), [6, 7, 8, 9, 10])
+    assert.equal((await tool(C, 'history', { room: 'long', limit: 1000 })).length, 60)
+    const list = await C.rpc('tools/list', {})
+    assert.match(list.result.tools.find((t) => t.name === 'history').description, /before_cursor/)
+  })
 })
 
 describe('call.mjs helper', () => {

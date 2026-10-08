@@ -23,6 +23,7 @@ const MAX_MSG = 200_000 // chars
 const MAX_TITLE = 200
 const DEFAULT_WAIT_S = 55 // stays under Codex's 60s default tool timeout
 const MAX_WAIT_S = 3600
+const HISTORY_LIMIT = 50 // a whole room can run to megabytes
 const FALLBACK_SCAN_MS = 1500
 // Chats can hold code and anything pasted into them: only the user may read them.
 const DIR_MODE = 0o700
@@ -407,13 +408,17 @@ const TOOLS = [
   },
   {
     name: 'history',
-    description: 'Return a room\'s transcript (every message, regardless of addressee), optionally filtered by `channel`. `room` required. Optional `limit` = most recent N. Use it to catch up when you join.',
+    description:
+      'Return a room\'s transcript (every message, regardless of addressee), oldest first, optionally filtered by `channel`. ' +
+      '`room` required. Returns the most recent `limit` messages (default 50). To page back, call it again with ' +
+      '`before_cursor` set to the cursor of the oldest message you got. Use it to catch up when you join.',
     inputSchema: {
       type: 'object',
       properties: {
         room: { type: 'string', description: 'Room id (required).' },
         channel: { type: 'string', description: 'Filter to one channel (optional).' },
-        limit: { type: 'number', description: 'Most recent N messages.' },
+        limit: { type: 'number', description: 'Most recent N messages. Default 50.' },
+        before_cursor: { type: 'number', description: 'Only messages with a cursor lower than this, to page back.' },
       },
       required: ['room'],
     },
@@ -459,7 +464,8 @@ async function handleToolCall(id, params) {
       const ch = a.channel ? validId(a.channel, 'channel') : null
       let all = readMessages(room).map(({ id: mid, from, to, channel, ts, reply_to, message, seq }) => ({ message_id: mid, from, to, channel: channel || 'main', ts, reply_to: reply_to ?? null, cursor: seq + 1, message }))
       if (ch) all = all.filter((m) => m.channel === ch)
-      const limit = Number(a.limit) > 0 ? Number(a.limit) : all.length
+      if (Number.isFinite(a.before_cursor)) all = all.filter((m) => m.cursor < a.before_cursor)
+      const limit = Number(a.limit) > 0 ? Number(a.limit) : HISTORY_LIMIT
       result(id, textResult(JSON.stringify(all.slice(-limit), null, 2)))
       return
     }
