@@ -342,6 +342,16 @@ for (const cmd of [
 ]) denies(cmd);
 denies('git checkout "$B" && git merge x', main);
 denies('git switch feat/x && git switch - && git merge x', main);
+// A refspec or branch that is one whole variable set earlier in the same command.
+for (const cmd of [
+  'B=main; git push origin "$B"',
+  'BR=main && git push origin $BR',
+  'export B=main; git push origin "${B}"',
+  'B=main; git checkout "$B" && git merge x',
+]) denies(cmd);
+allows('B=feat/y; git push origin "$B"', main);
+denies('B=main; B=$(git branch --show-current); git push origin "$B"', main);
+allows('B=main git push origin "$B"');
 
 test('an internal error lets the command through with a note once per session', () => {
   const env = { CLAUDE_PLUGIN_DATA: join(root, 'state-error') };

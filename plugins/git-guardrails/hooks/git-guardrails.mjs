@@ -211,6 +211,8 @@ function checkSegment(seg, ctx, depth) {
   const args = seg.words.slice(i);
   const name = basename(args[0]?.text ?? '');
   const inner = { ...ctx, allow };
+  // `B=main; git push origin "$B"`: a bare assignment sets what later commands expand.
+  if (!args.length || name === 'export') remember(args.length ? args.slice(1).map((w) => w.text) : assigns, ctx.vars);
   if (name === 'cd' || name === 'pushd') {
     if (args[1]?.text !== '-') ctx.cwd = resolvePath(ctx.cwd, args[1]?.text ?? '~');
     return null;
@@ -233,6 +235,34 @@ function checkSegment(seg, ctx, depth) {
   if (name === 'gh') return checkGh(args.slice(1), seg, ctx);
   if (name === 'curl' && args.some((a) => a.text.includes('api.github.com'))) return checkApi(args.slice(1), seg, ctx, CURL_FLAGS);
   return null;
+}
+
+function remember(assigns, vars) {
+  for (const a of assigns) {
+    const [, name, value] = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s.exec(a) ?? [];
+    if (!name) continue;
+    if (value.includes(MARK)) vars.delete(name);
+    else vars.set(name, value);
+  }
+}
+
+// Fills in each $NAME or ${NAME} that an earlier NAME=literal in the same command set.
+function expand(w, vars) {
+  if (!w.vars.length || !vars.size) return w;
+  const parts = w.text.split(MARK);
+  const left = [];
+  let text = parts[0];
+  w.vars.forEach((v, k) => {
+    const m = /^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})$/.exec(v);
+    const name = m && (m[1] ?? m[2]);
+    if (name && vars.has(name)) text += vars.get(name);
+    else {
+      text += MARK;
+      left.push(v);
+    }
+    text += parts[k + 1];
+  });
+  return { ...w, text, vars: left };
 }
 
 const resolvePath = (base, p) => (p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : resolve(base, p));
@@ -273,8 +303,9 @@ const protectedWhy = (b) => `${b} is a protected branch, and changing it needs t
 
 const GIT_VALUE_OPTS = ['-c', '--git-dir', '--work-tree', '--namespace', '--config-env'];
 
-function checkGit(argv, ctx) {
+function checkGit(words, ctx) {
   const cfg = ctx.config;
+  const argv = words.map((w) => expand(w, ctx.vars));
   let dir = ctx.cwd;
   let i = 0;
   for (; i < argv.length && argv[i].text.startsWith('-'); i++) {
@@ -459,7 +490,7 @@ function checkApi(argv, seg, ctx, flags) {
 // Returns the deny reason, or null when the command may run.
 export function check(command, { cwd = process.cwd(), config = loadConfig() } = {}) {
   try {
-    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map() }, 0);
+    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map(), vars: new Map() }, 0);
   } catch (err) {
     if (err !== TOO_DEEP) throw err;
     return deny('a command nested too deeply to check', `past ${MAX_DEPTH} levels of $(...), sh -c or eval the hook stops reading.`);
