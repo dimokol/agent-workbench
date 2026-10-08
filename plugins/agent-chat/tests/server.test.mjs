@@ -388,6 +388,32 @@ describe('per-project buckets under AGENT_CHAT_ROOT', () => {
   })
 })
 
+describe('launch review', () => {
+  test('a room id or AGENT_CHAT_PROJECT that starts with a dot is refused', async () => {
+    const base = tmp('dots')
+    const root = path.join(base, 'root')
+    const repo = makeRepo(base, 'dot-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: root } })
+    for (const room of ['..', '.', '.hidden']) {
+      const r = await raw(C, 'post', { room, from: 'a', message: 'hi' })
+      assert.equal(r.isError, true, room)
+    }
+    const w = await raw(C, 'wait', { room: '..', me: 'a', timeout_seconds: 1 })
+    assert.equal(w.isError, true)
+    assert.equal(fs.existsSync(path.join(root, 'dot-repo', 'room.json')), false)
+    assert.equal(fs.existsSync(path.join(root, 'dot-repo', 'chat.jsonl')), false)
+
+    const P = client({ cwd: repo, env: { AGENT_CHAT_ROOT: root, AGENT_CHAT_PROJECT: '..' } })
+    await exited(P.proc)
+    assert.notEqual(P.proc.exitCode, 0)
+    assert.equal(fs.existsSync(path.join(base, 'project.json')), false)
+    assert.equal(fs.existsSync(path.join(base, 'rooms')), false)
+  })
+
+
+
+})
+
 describe('call.mjs helper', () => {
   test('prints a tool result and exits 0; exits 1 on a tool error', () => {
     const base = tmp('call')

@@ -30,9 +30,10 @@ const norm = (s) => String(s ?? '').trim()
 const lc = (s) => norm(s).toLowerCase()
 const BROADCAST = new Set(['', 'all', 'everyone', 'any', '*'])
 
+// No leading dot: "." and ".." would put files outside the rooms folder.
 function validId(v, field) {
   const s = norm(v)
-  if (!/^[A-Za-z0-9._-]{1,64}$/.test(s)) throw new Error(`invalid ${field}: must match [A-Za-z0-9._-]{1,64}`)
+  if (!/^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(s)) throw new Error(`invalid ${field}: must match [A-Za-z0-9._-]{1,64} and not start with a dot`)
   return s
 }
 function validRecipient(v) {
