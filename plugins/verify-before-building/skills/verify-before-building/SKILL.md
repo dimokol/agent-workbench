@@ -1,6 +1,6 @@
 ---
 name: verify-before-building
-description: Check that the trunk doesn't already have a feature before you branch for it. Use when starting new work: "start a branch", "new feature branch", "begin work on X", "create a worktree", before the first git checkout -b or git worktree add of a task.
+description: Check that the trunk doesn't already have a feature before you branch for it. Use when starting new work, like "start a branch", "new feature branch", "begin work on X" or "create a worktree", and before the first git checkout -b or git worktree add of a task.
 ---
 
 # verify-before-building
