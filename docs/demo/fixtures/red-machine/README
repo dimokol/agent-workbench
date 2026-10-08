@@ -1,0 +1,4 @@
+Stub system readers for scene 2. bin/pressure.sh puts this folder first on PATH,
+so the real pressure.sh reads these numbers instead of the recording machine's:
+an 8-core, 16 GB Mac with RAM and swap nearly full. Every number on screen in
+scene 2 comes from here, which is why the caption says "fixture readings".

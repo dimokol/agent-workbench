@@ -1,0 +1,1185 @@
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$ pretooluse 'git push origin main'
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$ pretooluse 'git push origin main'
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$ pretooluse 'git push origin main'
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$ pretooluse 'git push origin main'
+ DENY  git-guardrails
+  git-guardrails blocked git push to main: main is a protected branch, and
+  changing it needs the user's explicit go. Only if the user's latest message
+  asked for exactly this, retry with GIT_GUARDRAILS_ALLOW=1 written directly
+  before the blocked command itself, not before cd or an earlier command in the
+  chain (each blocked command needs its own). Otherwise stop and ask the user.
+
+$
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# git-guardrails: an agent tries to merge a PR and push to main
+
+$ pretooluse 'gh pr merge 12 --squash'
+ DENY  git-guardrails
+  git-guardrails blocked gh pr merge: merging needs the user's explicit go. Only
+  if the user's latest message asked for exactly this, retry with
+  GIT_GUARDRAILS_ALLOW=1 written directly before the blocked command itself, not
+  before cd or an earlier command in the chain (each blocked command needs its
+  own). Otherwise stop and ask the user.
+
+$ pretooluse 'git push origin main'
+ DENY  git-guardrails
+  git-guardrails blocked git push to main: main is a protected branch, and
+  changing it needs the user's explicit go. Only if the user's latest message
+  asked for exactly this, retry with GIT_GUARDRAILS_ALLOW=1 written directly
+  before the blocked command itself, not before cd or an earlier command in the
+  chain (each blocked command needs its own). Otherwise stop and ask the user.
+
+$
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$ pretooluse 'npx playwright test'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$ pretooluse 'npx playwright test'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$ pretooluse 'npx playwright test'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$ pretooluse 'npx playwright test'
+ DENY  machine-pressure
+  Blocked: machine pressure is RED (CPU 63%, RAM 96% (memory pressure critical),
+  swap 91%, load 13.07, disk 41.0 GB free), so this e2e command could freeze the
+  machine. Free memory first (close idle agent sessions or stop dev servers),
+  then retry. To run it anyway, put PRESSURE_ALLOW=1 directly before the heavy
+  command, after any cd (cd app && PRESSURE_ALLOW=1 npm run build). Each heavy
+  command in a chain needs its own.
+
+$
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# machine-pressure: a machine out of RAM (fixture readings)
+
+$ pressure.sh --statusline
+CPU 63% | RAM 96% | swap 91% | load 13.1 | disk 41G | pressure RED
+
+$ pretooluse 'npx playwright test'
+ DENY  machine-pressure
+  Blocked: machine pressure is RED (CPU 63%, RAM 96% (memory pressure critical),
+  swap 91%, load 13.07, disk 41.0 GB free), so this e2e command could freeze the
+  machine. Free memory first (close idle agent sessions or stop dev servers),
+  then retry. To run it anyway, put PRESSURE_ALLOW=1 directly before the heavy
+  command, after any cd (cd app && PRESSURE_ALLOW=1 npm run build). Each heavy
+  command in a chain needs its own.
+
+$
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────
+# agent-chat: two agents in two terminals agree on an API change
+
+ api agent                               │  web agent
+─────────────────────────────────────────┼─────────────────────────────────────────
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+────────────────────────────────────────────────────────────────────────────────
+# agent-chat: two agents in two terminals agree on an API change
+
+ api agent                               │  web agent
+─────────────────────────────────────────┼─────────────────────────────────────────
+▸ post search-api, to web                │ ▸ wait search-api
+  Proposing `etaMinutes: number` on      │   api: Proposing `etaMinutes: number` on
+  Order. OK?                             │     Order. OK?
+  sent, cursor 1                         │
+                                         │ ▸ post search-api, to api
+▸ wait search-api                        │   Yes. I'll show it as "about 25 min" on
+  web: Yes. I'll show it as "about 25    │   the order card.
+    min" on the order card.              │   sent, cursor 2
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+────────────────────────────────────────────────────────────────────────────────
+# agent-chat: two agents in two terminals agree on an API change
+
+ api agent                               │  web agent
+─────────────────────────────────────────┼─────────────────────────────────────────
+▸ post search-api, to web                │ ▸ wait search-api
+  Proposing `etaMinutes: number` on      │   api: Proposing `etaMinutes: number` on
+  Order. OK?                             │     Order. OK?
+  sent, cursor 1                         │
+                                         │ ▸ post search-api, to api
+▸ wait search-api                        │   Yes. I'll show it as "about 25 min" on
+  web: Yes. I'll show it as "about 25    │   the order card.
+    min" on the order card.              │   sent, cursor 2
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+                                         │
+────────────────────────────────────────────────────────────────────────────────
