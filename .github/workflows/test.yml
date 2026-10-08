@@ -61,6 +61,10 @@ jobs:
           for p in context-nudge integration-branch-qa machine-pressure pr-review-loop; do suite "$p" 'bash tests/run.sh'; done
           exit $fail
 
+      - name: Test install.sh
+        if: ${{ !cancelled() }}
+        run: bash tests/install-test.sh
+
       # storage-reclaim is a macOS tool (APFS volumes, ~/Library); its README marks Linux untested.
       - name: Test storage-reclaim (macOS only)
         if: ${{ !cancelled() && runner.os == 'macOS' }}
