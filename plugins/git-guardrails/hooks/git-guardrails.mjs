@@ -4,7 +4,7 @@
 // pushes to protected branches, remote branch deletion and history-destroying
 // git. A blocked command passes when GIT_GUARDRAILS_ALLOW=1 sits directly before it.
 // It is a speed bump against mistakes: scripts and git aliases go unseen.
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir, tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -295,11 +295,11 @@ function checkGit(argv, ctx) {
     return isProtected(b, cfg) ? deny(`git merge while ${b} is checked out`, protectedWhy(b)) : null;
   }
   if (verb === 'checkout' || verb === 'switch') {
+    // Later commands in the line run on the branch this one leaves checked out:
     // `git checkout main && git merge x` merges into main, though main isn't checked out yet.
-    const k = t.findIndex((a) => /^-[bBcC]$/.test(a));
-    const pos = t.filter((a) => !a.startsWith('-'));
-    const target = k >= 0 ? t[k + 1] : !t.includes('--') && pos.length === 1 ? pos[0] : null;
-    if (isProtected(target, cfg)) ctx.onBranch.set(dir, target);
+    const target = checkoutTarget(verb, rest, dir, cfg);
+    if (target === undefined) ctx.onBranch.delete(dir); // can't tell, so ask git
+    else if (target !== KEEP) ctx.onBranch.set(dir, target);
     return null;
   }
   if (!cfg.blockDestructive) return null;
@@ -311,6 +311,33 @@ function checkGit(argv, ctx) {
   const stash = t.find((a) => !a.startsWith('-'));
   if (verb === 'stash' && (stash === 'drop' || stash === 'clear')) return deny(`git stash ${stash}`, LOSES);
   return null;
+}
+
+const KEEP = Symbol('only files change');
+
+// Where a checkout or switch leaves HEAD: a branch name, null when detached,
+// undefined when the hook can't tell, or KEEP when it only restores files.
+function checkoutTarget(verb, words, dir, cfg) {
+  const pos = [];
+  let track = false;
+  for (let k = 0; k < words.length; k++) {
+    const a = words[k].text;
+    const made = /^(?:-[bBcC]|--orphan|--create|--force-create)(?:=(.*))?$/s.exec(a);
+    if (made) {
+      const name = made[1] ?? words[k + 1]?.text;
+      return name && !name.includes(MARK) ? name : undefined;
+    }
+    if (a === '--detach' || (verb === 'switch' && a === '-d')) return null;
+    if (a === '--' || a === '-p' || a === '--patch' || a.startsWith('--pathspec-from-file')) return KEEP;
+    if (a === '-t' || a.startsWith('--track')) track = true;
+    else if (a === '-' || !a.startsWith('-')) pos.push(a);
+  }
+  if (pos.length !== 1) return KEEP; // `git checkout main file.txt` restores a file
+  if (pos[0] === '-' || pos[0].includes(MARK)) return undefined;
+  const name = track ? pos[0].replace(/^[^/]+\//, '') : pos[0]; // -t origin/x creates x
+  // git reads `git checkout notes.md` as a file restore unless a ref has that name.
+  if (verb === 'checkout' && !isProtected(name, cfg) && existsSync(resolve(dir, pos[0]))) return KEEP;
+  return name;
 }
 
 function checkPush(argv, branch, cfg) {

@@ -321,6 +321,28 @@ denies("find . -name '*.md' -exec grep -l x {} \\; -exec git push origin main \\
 denies('find . -execdir true \\; -ok git branch -D {} +');
 allows("find . -name '*.log' -exec rm {} \\; -exec echo git push origin main \\;");
 
+// Launch review.
+// Every checkout or switch moves the branch the hook reads, not only one onto a protected branch.
+writeFileSync(join(onFeat, 'notes.md'), '');
+for (const cmd of [
+  'git checkout main && git pull && git checkout feat/x && git merge main',
+  'git switch main && git pull --ff-only && git switch feat/x && git merge main',
+  'git checkout main && git pull && git checkout -b feat2 && git merge origin/feat',
+  'git switch main && git switch -c fix && git merge main',
+  'git switch main && git switch --create=fix && git merge main',
+  'git checkout main && git checkout --detach && git merge x',
+  'git checkout main && git checkout - && git merge main',
+]) allows(cmd);
+for (const cmd of [
+  'git checkout feat/x && git checkout main && git merge x',
+  'git checkout main && git checkout notes.md && git merge x',
+  'git checkout main && git checkout -- notes.md && git merge x',
+  'git checkout main && git checkout feat/x notes.md && git merge x',
+  'git checkout -t origin/main && git merge x',
+]) denies(cmd);
+denies('git checkout "$B" && git merge x', main);
+denies('git switch feat/x && git switch - && git merge x', main);
+
 test('an internal error lets the command through with a note once per session', () => {
   const env = { CLAUDE_PLUGIN_DATA: join(root, 'state-error') };
   const broken = (session) => ({ session_id: session, get tool_input() { throw new Error('boom'); } });
