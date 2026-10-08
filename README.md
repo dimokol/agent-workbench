@@ -1,36 +1,35 @@
 # agent-workbench
 
-Hooks, skills and an MCP server for running several coding agents at once without them
-merging things you didn't approve, fighting over one checkout, or pinning your CPU. Claude Code
-first; the skills and the chat server also work in Codex. Install only the parts you want.
+[![test](https://github.com/dimokol/agent-workbench/actions/workflows/test.yml/badge.svg)](https://github.com/dimokol/agent-workbench/actions/workflows/test.yml)
 
-New to running more than one agent? Start with
-[Running several agents at once](docs/running-several-agents.md). It's a five-minute read.
+Run several Claude Code or Codex agents on one laptop. These plugins stop an agent from merging a
+PR you didn't approve or starting a second test run on a machine that's already struggling, and
+give agents in different terminals a room to settle an API between themselves.
+
+![A PR merge refused by git-guardrails, an e2e run refused by machine-pressure while memory is red, and two agents agreeing on a field name over agent-chat](docs/demo/demo.gif)
 
 ## Install
 
 ```bash
 claude plugin marketplace add dimokol/agent-workbench
-claude plugin install starter@dimokol   # git-guardrails, machine-pressure, worktree-hygiene, agent-chat
-claude plugin install <part>@dimokol    # or pick single parts from the table
+claude plugin install starter@dimokol
 ```
 
-Then restart Claude Code. `/plugin` lists what you installed (with starter, `/mcp` also shows
-agent-chat). To see one work, ask "run a health check": worktree-hygiene audits your worktrees and
-disk without changing anything.
+Restart Claude Code. starter brings git-guardrails, machine-pressure, worktree-hygiene and
+agent-chat. Claude Code may say some options are "not yet set"; the defaults apply. To see one
+work, ask "run a health check".
 
-Every setting has a default. After install Claude Code may say options are "not yet set". That's
-fine, the defaults apply. Change a part's settings with `/plugin configure <part>@dimokol`; each
-part's README lists them. Your own hooks stay as they are. Turn a part off with
-`claude plugin disable <part>@dimokol`. If you installed starter, run
-`claude plugin disable starter@dimokol` first, because it holds its four parts in place.
+Skills only, for Codex and other agents: `npx skills add dimokol/agent-workbench`.
 
-Codex, or no plugin system: `curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- --list`
-shows the parts. To copy one into place, swap `--list` for the part's name:
-`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- git-guardrails`.
-It prints any hook or MCP snippet for you to paste. For Codex, set the skills folder:
-`curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | SKILLS_DIR=~/.codex/skills bash -s -- worktree-hygiene`.
-In Codex the skills and agent-chat work; hooks are Claude Code only.
+## What it prevents
+
+- An agent merges a PR, pushes to main or runs `reset --hard` before you said so.
+- Four agents start four test suites, and the laptop swaps until nothing responds.
+- Two agents in two terminals guess the same field name differently.
+- Merged worktrees, idle `node_modules` folders and orphaned dev servers fill the disk.
+
+New to running more than one agent? [Running several agents at once](docs/running-several-agents.md)
+is a five-minute read.
 
 ## Parts
 
@@ -53,6 +52,25 @@ In Codex the skills and agent-chat work; hooks are Claude Code only.
 agreement between you and the agent, web project standards, a writing tone, a product copy voice,
 and a docs layout.
 
+## Settings and other installs
+
+Pick single parts with `claude plugin install <part>@dimokol`. Every setting has a default. Change
+one with `/plugin configure <part>@dimokol`; each part's README lists them. Your own hooks stay as
+they are. Turn a part off with `claude plugin disable <part>@dimokol`. If you installed starter,
+disable `starter@dimokol` first, because it holds its four parts in place.
+
+Without the plugin system, `install.sh` copies a part into place and prints any hook or MCP snippet
+for you to paste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- --list
+curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | bash -s -- git-guardrails
+# Codex: copy skills into Codex's folder
+curl -fsSL https://raw.githubusercontent.com/dimokol/agent-workbench/main/install.sh | SKILLS_DIR=~/.codex/skills bash -s -- worktree-hygiene
+```
+
+In Codex the skills and agent-chat work; hooks are Claude Code only.
+
 ## Also worth installing
 
 Tools that fit with these parts. Linked, not copied.
@@ -71,6 +89,7 @@ Tools that fit with these parts. Linked, not copied.
 - [superpowers](https://github.com/obra/superpowers) by Jesse Vincent shaped how these parts were planned, built and reviewed.
 - [mattpocock/skills](https://github.com/mattpocock/skills): its grilling skill settled the design questions, and it has a git-guardrails skill with the same aim as this one.
 - [pstack](https://github.com/cursor/plugins/tree/main/pstack): its unslop skill is the stricter checklist `blocks/writing-tone.md` points to, and its worktree-cleanup is the fuller playbook worktree-hygiene points to.
+- The demo is recorded with [VHS](https://github.com/charmbracelet/vhs) by Charm.
 
 ## License
 
