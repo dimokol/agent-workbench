@@ -447,6 +447,12 @@ describe('launch review', () => {
     const list = await C.rpc('tools/list', {})
     assert.match(list.result.tools.find((t) => t.name === 'history').description, /before_cursor/)
   })
+
+  test('the server reports the version in plugin.json', async () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
+    const C = await start({ env: { AGENT_CHAT_DIR: tmp('version') } })
+    assert.equal(C.serverInfo.version, manifest.version)
+  })
 })
 
 describe('call.mjs helper', () => {

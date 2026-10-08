@@ -482,7 +482,7 @@ function handle(id, method, params) {
       result(id, {
         protocolVersion: (params && params.protocolVersion) || '2025-06-18',
         capabilities: { tools: {} },
-        serverInfo: { name: 'agent-chat', version: '0.4.0' },
+        serverInfo: { name: 'agent-chat', version: '0.1.0' }, // keep equal to plugin.json (a test checks)
         instructions:
           `This server is scoped to project "${SCOPE.project}" (${SCOPE.projectRoot}). ` +
           'Every room operation stays inside that project bucket. ' +
