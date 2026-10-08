@@ -24,6 +24,9 @@ const MAX_TITLE = 200
 const DEFAULT_WAIT_S = 55 // stays under Codex's 60s default tool timeout
 const MAX_WAIT_S = 3600
 const FALLBACK_SCAN_MS = 1500
+// Chats can hold code and anything pasted into them: only the user may read them.
+const DIR_MODE = 0o700
+const FILE_MODE = 0o600
 
 // ---- helpers ---------------------------------------------------------------
 const norm = (s) => String(s ?? '').trim()
@@ -48,6 +51,9 @@ function slugify(s) {
 function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
+
+const mkdirPrivate = (d) => fs.mkdirSync(d, { recursive: true, mode: DIR_MODE })
+const writePrivate = (f, data) => fs.writeFileSync(f, data, { mode: FILE_MODE })
 
 function expandHome(p) {
   const s = norm(p)
@@ -105,15 +111,15 @@ function resolveChatScope() {
 
   const centralRoot = expandHome(process.env.AGENT_CHAT_ROOT) || path.join(os.homedir(), '.agent-chat')
   const chatsRoot = path.resolve(centralRoot)
-  fs.mkdirSync(chatsRoot, { recursive: true })
+  mkdirPrivate(chatsRoot)
 
   // A name set on purpose is used as-is, with no root check and no suffix, so agents in
   // different repos that set the same AGENT_CHAT_PROJECT meet in one bucket.
   if (forcedProject) {
     const dir = path.join(chatsRoot, forcedProject)
-    fs.mkdirSync(dir, { recursive: true })
+    mkdirPrivate(dir)
     if (!readProjectMeta(dir)) {
-      fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({
+      writePrivate(path.join(dir, 'project.json'), JSON.stringify({
         id: forcedProject,
         name: forcedProject,
         project_root: projectRoot,
@@ -133,11 +139,11 @@ function resolveChatScope() {
     dir = path.join(chatsRoot, project)
   }
 
-  fs.mkdirSync(dir, { recursive: true })
+  mkdirPrivate(dir)
   const metaPath = path.join(dir, 'project.json')
   const meta = readProjectMeta(dir)
   if (!meta) {
-    fs.writeFileSync(metaPath, JSON.stringify({
+    writePrivate(metaPath, JSON.stringify({
       id: project,
       name: path.basename(projectRoot),
       project_root: projectRoot,
@@ -153,7 +159,7 @@ function resolveChatScope() {
 const SCOPE = resolveChatScope()
 const DIR = SCOPE.dir
 const ROOMS = path.join(DIR, 'rooms')
-fs.mkdirSync(ROOMS, { recursive: true })
+mkdirPrivate(ROOMS)
 
 // ---- rooms -----------------------------------------------------------------
 function roomPaths(room) {
@@ -166,9 +172,9 @@ function roomExists(room) {
 function writeRoomMeta(id, title) {
   const p = roomPaths(id)
   const created = new Date().toISOString()
-  fs.mkdirSync(p.dir, { recursive: true })
-  fs.writeFileSync(p.meta, JSON.stringify({ id, title, created }, null, 2) + '\n')
-  fs.writeFileSync(p.md, `# ${title}\n\n_room \`${id}\` · created ${created}_\n`)
+  mkdirPrivate(p.dir)
+  writePrivate(p.meta, JSON.stringify({ id, title, created }, null, 2) + '\n')
+  writePrivate(p.md, `# ${title}\n\n_room \`${id}\` · created ${created}_\n`)
   return created
 }
 function createRoom({ title, room }) {
@@ -213,7 +219,7 @@ function withLock(lockPath, fn) {
   const start = Date.now()
   for (;;) {
     try {
-      const fd = fs.openSync(lockPath, 'wx')
+      const fd = fs.openSync(lockPath, 'wx', FILE_MODE)
       heldLock = lockPath
       try { return fn() } finally { heldLock = null; fs.closeSync(fd); try { fs.unlinkSync(lockPath) } catch {} }
     } catch (e) {
@@ -254,9 +260,9 @@ function post({ room, from, to, channel, message, reply_to, title }) {
   let cursor
   withLock(p.lock, () => {
     const count = readMessages(r).length
-    fs.appendFileSync(p.jsonl, JSON.stringify(rec) + '\n')
+    fs.appendFileSync(p.jsonl, JSON.stringify(rec) + '\n', { mode: FILE_MODE })
     const tag = ch === 'main' ? '' : `[${ch}] `
-    fs.appendFileSync(p.md, '\n' + `### ${tag}${f} → ${t}  ·  ${rec.ts}  ·  id ${rec.id}` + '\n\n' + body.trimEnd() + '\n')
+    fs.appendFileSync(p.md, '\n' + `### ${tag}${f} → ${t}  ·  ${rec.ts}  ·  id ${rec.id}` + '\n\n' + body.trimEnd() + '\n', { mode: FILE_MODE })
     cursor = count + 1
   })
   return { room: r, message_id: rec.id, cursor }

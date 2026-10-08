@@ -36,7 +36,7 @@ The project comes from the server's working directory (its Git root, when it's a
 | | `AGENT_CHAT_PROJECT` | folder name of the Git root | Fixed project name instead of the inferred one, used as-is: every agent with the same name shares rooms, whatever repo it runs in. Also applies in `AGENT_CHAT_DIR` mode. |
 | | `AGENT_CHAT_DIR` | unset | Legacy mode: one flat folder, no per-project split. Overrides the root. |
 
-Two repos with the same folder name get separate subfolders (the second one gets a short hash suffix).
+Two repos with the same folder name get separate subfolders (the second one gets a short hash suffix). Folders and transcripts the server creates are readable by you only (modes 700 and 600). A folder that already exists keeps its permissions.
 
 ## Turn it off
 `claude plugin disable agent-chat@dimokol`

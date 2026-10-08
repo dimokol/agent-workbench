@@ -412,6 +412,23 @@ describe('launch review', () => {
 
 
 
+
+  test('folders are private to the user (0700) and files too (0600)', async () => {
+    const base = tmp('modes')
+    const root = path.join(base, 'root')
+    const repo = makeRepo(base, 'mode-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: root } })
+    await tool(C, 'create_room', { title: 'Private', room: 'r' })
+    await tool(C, 'post', { room: 'r', from: 'a', message: 'secret' })
+    await tool(C, 'post', { room: 'lazy', from: 'a', message: 'made on first post' })
+    const mode = (p) => fs.statSync(p).mode & 0o777
+    for (const d of [root, path.join(root, 'mode-repo'), path.join(root, 'mode-repo', 'rooms'), path.join(root, 'mode-repo', 'rooms', 'r'), path.join(root, 'mode-repo', 'rooms', 'lazy')]) {
+      assert.equal(mode(d), 0o700, d)
+    }
+    for (const f of ['project.json', 'rooms/r/room.json', 'rooms/r/chat.md', 'rooms/r/chat.jsonl', 'rooms/lazy/chat.jsonl']) {
+      assert.equal(mode(path.join(root, 'mode-repo', f)), 0o600, f)
+    }
+  })
 })
 
 describe('call.mjs helper', () => {
