@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agent-chat": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/server.mjs"],
+      "env": {
+        "AGENT_CHAT_ROOT": "${user_config.chat_root}"
+      }
+    }
+  }
+}

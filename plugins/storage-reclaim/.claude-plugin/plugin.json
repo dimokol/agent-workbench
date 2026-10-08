@@ -1,0 +1,23 @@
+{
+  "name": "storage-reclaim",
+  "version": "0.1.0",
+  "description": "Disk cleanup for macOS that measures first, refuses to touch what a process or another session uses, and frees space in tiers you approve one by one.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["disk", "cleanup", "macos", "storage", "node_modules"],
+  "userConfig": {
+    "lock_dir": {
+      "type": "string",
+      "title": "Lock directory name",
+      "description": "Name of a folder your sessions use to mark active work (for example .locks). Anything inside it is treated as in use. Leave empty if you have none.",
+      "default": ""
+    },
+    "worktree_suffix": {
+      "type": "string",
+      "title": "Worktree folder suffix",
+      "description": "Folders whose name ends with this text (for example -worktrees) hold other sessions' worktrees and are never deleted. Leave empty if you have none.",
+      "default": ""
+    }
+  }
+}
