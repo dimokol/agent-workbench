@@ -214,6 +214,34 @@ mkenv; OSNAME=Linux; write_stubs; rm -f "$BIN/sysctl" "$BIN/vm_stat"; printf '#!
 rm -rf "${WORK:?}/env/proc"
 eq "linux with no /proc and no df is UNKNOWN, never RED" UNKNOWN "$(jf "$(probe --json)" .level)"
 
+echo "== Linux: the current folder on a memory filesystem =="
+mkenv; OSNAME=Linux; write_stubs; rm -f "$BIN/sysctl" "$BIN/vm_stat"
+linux_proc 2000000 1500000
+write_stat 1000 1000 8000
+mkdir -p "$WORK/env/home"
+cat > "$BIN/df" <<EOF
+#!/bin/sh
+echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
+case "\$3" in
+  .) echo "tmpfs 8388608 104858 8283750 2% /tmp" ;;
+  /) echo "/dev/sda1 100000000 47571200 52428800 48% /" ;;
+  *) echo "/dev/sda2 500000000 100000000 400000000 20% /home" ;;
+esac
+EOF
+chmod +x "$BIN/df"
+printf 'tmpfs /tmp tmpfs rw 0 0\n/dev/sda1 / ext4 rw 0 0\n/dev/sda2 /home ext4 rw 0 0\n' > "$WORK/env/proc/mounts"
+out=$(HOME="$WORK/env/home" probe --json)
+eq "linux: cwd on tmpfs, so the disk of \$HOME counts" 381.5 "$(jf "$out" .disk_free_gb)"
+eq "linux: an 8 GB tmpfs doesn't make it RED" OK "$(jf "$out" .level)"
+printf 'tmpfs /tmp tmpfs rw 0 0\n/dev/sda1 / ext4 rw 0 0\ntmpfs /home tmpfs rw 0 0\n' > "$WORK/env/proc/mounts"
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache
+eq "linux: \$HOME on tmpfs too, so / counts" 50.0 "$(jf "$(HOME="$WORK/env/home" probe --json)" .disk_free_gb)"
+printf '/dev/sda1 / ext4 rw 0 0\n' > "$WORK/env/proc/mounts"
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache
+eq "linux: a tmpfs that /proc/mounts doesn't list is measured as it is" 7.9 "$(jf "$(HOME="$WORK/env/home" probe --json)" .disk_free_gb)"
+mkenv; printf 'tmpfs /home tmpfs rw 0 0\n' > "$WORK/env/proc/mounts"
+eq "macOS ignores /proc/mounts" 100.0 "$(jf "$(probe --json)" .disk_free_gb)"
+
 echo "== cache =="
 mkenv
 a=$(probe --json)

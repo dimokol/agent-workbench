@@ -25,7 +25,8 @@
 #   CPU_AMBER 85, CPU_RED 97         percent of all cores in use
 #   RAM_AMBER 85, RAM_RED 93         percent of RAM in use (not available)
 #   SWAP_AMBER 70, SWAP_RED 90       percent of swap in use (Linux only)
-#   DISK_AMBER_GB 20, DISK_RED_GB 10 free GB on the current folder's disk (lower is worse)
+#   DISK_AMBER_GB 20, DISK_RED_GB 10 free GB on the current folder's disk (lower is worse;
+#                                    on Linux a tmpfs folder falls back to $HOME's disk, then /)
 #   LOAD_AMBER_X 1.5, LOAD_RED_X 3   1-minute load as a multiple of the core count
 #
 # Test hooks: PRESSURE_PROC_ROOT (fake /proc), PRESSURE_CACHE_TTL (seconds).
@@ -56,8 +57,19 @@ isnum() { case $1 in ''|*[!0-9.]*|*.*.*|.) return 1 ;; esac; return 0; }
 
 # ---- samplers: each sets its variables, or leaves them empty on any failure ----
 
+# Free disk where the probe runs. On Linux a folder on tmpfs (often /tmp) is RAM,
+# not disk, so the disk of $HOME, else /, is measured instead.
 sample_disk() {
-  disk=$(df -P -k . 2>/dev/null | awk 'NR==2 && $4 ~ /^[0-9]+$/ {printf "%.1f", $4/1048576}')
+  for _d in . "${HOME:-/}" /; do
+    _r=$(df -P -k "$_d" 2>/dev/null | awk 'NR==2 && $4 ~ /^[0-9]+$/ {print $4, $NF}')
+    [ -n "$_r" ] || continue
+    if [ "$OS" = Linux ] && awk -v m="${_r#* }" '$2 == m { t = $3 } END { exit !(t ~ /^(tmpfs|ramfs|devtmpfs)$/) }' \
+      "${PRESSURE_PROC_ROOT:-/proc}/mounts" 2>/dev/null; then
+      continue
+    fi
+    disk=$(awk -v k="${_r%% *}" 'BEGIN{printf "%.1f", k/1048576}')
+    return
+  done
 }
 
 sample_darwin() {
