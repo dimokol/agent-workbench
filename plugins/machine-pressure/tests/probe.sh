@@ -19,7 +19,7 @@ mkenv() {
   BIN=$WORK/env/bin
   OSNAME=Darwin; LOAD="2.40"; MEMSIZE=17179869184; SWAPLINE="total = 2048.00M  used = 1024.00M  free = 1024.00M  (encrypted)"
   FREEPAGES=100000; INACTIVE=300000; SPEC=24288; PURGE=100000   # 524288 pages = 8192 MB available
-  PSCPU="40 30 10 0"; DISKKB=104857600; NCPU=8
+  PSCPU="40 30 10 0"; DISKKB=104857600; NCPU=8; MEMLEVEL=1
   write_stubs
 }
 
@@ -32,6 +32,7 @@ case "\$2" in
   vm.loadavg) echo "{ $LOAD 1.00 1.00 }" ;;
   hw.memsize) echo $MEMSIZE ;;
   vm.swapusage) echo "$SWAPLINE" ;;
+  kern.memorystatus_vm_pressure_level) [ -n "$MEMLEVEL" ] && echo $MEMLEVEL || exit 1 ;;
   *) exit 1 ;;
 esac
 EOF
@@ -53,7 +54,10 @@ EOF
   cat > "$BIN/df" <<EOF
 #!/bin/sh
 echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
-echo "/dev/disk1 500000000 400000000 $DISKKB 80% /"
+case "\$*" in
+  *" /") echo "/dev/disk1 100000000 47571200 52428800 48% /" ;;
+  *) echo "/dev/disk2 500000000 400000000 $DISKKB 80% /home" ;;
+esac
 EOF
   chmod +x "$BIN"/*
 }
@@ -72,7 +76,8 @@ eq "ram 50%" 50 "$(jf "$out" .ram_pct)"
 eq "swap 50%" 50 "$(jf "$out" .swap_pct)"
 eq "load" 2.40 "$(jf "$out" .load1)"
 eq "cores" 8 "$(jf "$out" .cores)"
-eq "disk 100 GB" 100.0 "$(jf "$out" .disk_free_gb)"
+eq "disk 100 GB, read on the current folder's disk, not /" 100.0 "$(jf "$out" .disk_free_gb)"
+eq "memory pressure normal" normal "$(jf "$out" .mem_pressure)"
 eq "human line" "OK | CPU 10% | RAM 50% | swap 50% | load 2.4 | disk 100G | clear" "$(probe)"
 eq "statusline" "CPU 10% | RAM 50% | swap 50% | load 2.4 | disk 100G | pressure OK" "$(probe --statusline)"
 eq "field cpu" "CPU 10%" "$(probe --field cpu)"
@@ -97,7 +102,23 @@ eq "load 13 on 8 cores is AMBER (1.5x = 12)" AMBER "$(jf "$(probe --json)" .leve
 mkenv; LOAD="25.0"; write_stubs
 eq "load 25 on 8 cores is RED (3x = 24)" RED "$(jf "$(probe --json)" .level)"
 mkenv; SWAPLINE="total = 2048.00M  used = 1900.00M  free = 148.00M  (encrypted)"; write_stubs
-eq "swap 92% is RED" RED "$(jf "$(probe --json)" .level)"
+out=$(probe --json)
+eq "macOS: swap 92% is shown" 92 "$(jf "$out" .swap_pct)"
+eq "macOS: swap 92% does not set the level" OK "$(jf "$out" .level)"
+eq "macOS: the swap widget has no level color" "swap 92%" "$(PCOLOR= probe --field swap)"
+mkenv; MEMLEVEL=2; write_stubs
+out=$(probe --json)
+eq "macOS: kernel memory pressure warn is AMBER" AMBER "$(jf "$out" .level)"
+eq "macOS: mem_pressure warn" warn "$(jf "$out" .mem_pressure)"
+eq "macOS: the RAM widget shows it" "$(printf '\033[33mRAM 50%%\033[0m')" "$(PCOLOR= probe --field ram)"
+mkenv; MEMLEVEL=4; write_stubs
+out=$(probe --json)
+eq "macOS: kernel memory pressure critical is RED" RED "$(jf "$out" .level)"
+eq "macOS: mem_pressure critical" critical "$(jf "$out" .mem_pressure)"
+mkenv; MEMLEVEL=; write_stubs
+out=$(probe --json)
+eq "macOS: no kernel level read: null" null "$(jf "$out" .mem_pressure)"
+eq "macOS: no kernel level read: other signals count" OK "$(jf "$out" .level)"
 mkenv; SWAPLINE="total = 0.00M  used = 0.00M  free = 0.00M  (encrypted)"; write_stubs
 eq "no swap configured is 0%" 0 "$(jf "$(probe --json)" .swap_pct)"
 mkenv; PSCPU="400 400 0"; write_stubs
@@ -171,16 +192,20 @@ eq "linux disk" 100.0 "$(jf "$out" .disk_free_gb)"
 rm -f "$WORK/env/slept"
 now=$(date +%s)
 printf '8000 10000 %s\n' "$((now - 10))" > "$WORK/env/tmp/machine-pressure-$(id -u).cpu"
-rm -f "$WORK/env/tmp/machine-pressure-$(id -u).cache"
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache
 write_stat 1500 1500 8500
 out=$(probe --json)
 eq "linux cpu from saved reading = 66" 66 "$(jf "$out" .cpu_pct)"
 [ -e "$WORK/env/slept" ] && bad "no sleep when a recent reading exists" slept || ok "no sleep when a recent reading exists"
 
+eq "linux has no kernel memory level" null "$(jf "$out" .mem_pressure)"
+linux_proc 2000000 160000
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache
+eq "linux swap 92% is RED" RED "$(jf "$(probe --json)" .level)"
 linux_proc 0 0
-rm -f "$WORK/env/tmp/machine-pressure-$(id -u).cache"
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache
 eq "linux without swap is 0%" 0 "$(jf "$(probe --json)" .swap_pct)"
-rm -f "$WORK/env/tmp/machine-pressure-$(id -u).cache" "$WORK/env/proc/meminfo"
+rm -f "$WORK/env/tmp/"machine-pressure-*.cache "$WORK/env/proc/meminfo"
 out=$(probe --json)
 eq "linux missing meminfo: ram null" null "$(jf "$out" .ram_pct)"
 eq "linux missing meminfo: not RED" OK "$(jf "$out" .level)"
@@ -197,6 +222,12 @@ eq "second call inside 4 s reuses the sample" "$a" "$b"
 c=$(PRESSURE_CACHE_TTL=0 probe --json)
 eq "ttl 0 resamples (disk now 1 GB)" 1.0 "$(jf "$c" .disk_free_gb)"
 eq "ttl 0 resample is RED on disk" RED "$(jf "$c" .level)"
+mkenv
+mkdir -p "$WORK/env/a" "$WORK/env/b"
+a=$(cd "$WORK/env/a" && probe --json)
+DISKKB=1048576; write_stubs
+b=$(cd "$WORK/env/b" && probe --json)
+eq "another folder inside 4 s reads its own disk" 1.0 "$(jf "$b" .disk_free_gb)"
 
 echo
 echo "probe: passed=$pass failed=$fail"

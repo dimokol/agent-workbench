@@ -69,6 +69,34 @@ for (const cmd of [
   'git commit -m "gh pr create later"',
 ]) allows(cmd);
 
+// Launch review: a body read with $(cat file), and paths through $PWD or $HOME.
+for (const cmd of [
+  'gh pr create --title x --body "$(cat linked.md)"',
+  'gh pr create --title x -b "$(cat linked.md)"',
+  'gh pr create --title x --body="$(cat linked.md)"',
+  'gh pr create --title x --body "`cat linked.md`"',
+  'cd sub && gh pr create --title x --body "$(cat linked.md)"',
+  'gh pr create --title x --body-file "$PWD/linked.md"',
+  'gh pr create --title x --body-file "${PWD}/linked.md"',
+  'cd sub && gh pr create --title x --body-file "$PWD/linked.md"',
+]) allows(cmd);
+for (const cmd of [
+  'gh pr create --title x --body "$(cat bare.md)"',
+  'gh pr create --title x --body "$(cat bare.md linked.md | head -1)"',
+  'gh pr create --title x --body-file "$PWD/bare.md"',
+  'gh pr create --title x --body "$(cat $DIR/linked.md)"',
+]) denies(cmd);
+test('a --body-file under $HOME is read', () => {
+  const home = process.env.HOME;
+  process.env.HOME = work;
+  try {
+    assert.equal(run('gh pr create --title x --body-file "$HOME/linked.md"'), null);
+    assert.ok(run('gh pr create --title x --body-file "$HOME/bare.md"')?.deny);
+  } finally {
+    process.env.HOME = home;
+  }
+});
+
 test('a relative --body-file is read from the session cwd, not the hook process cwd', () => {
   assert.notEqual(process.cwd(), work);
   assert.equal(run('gh pr create --title x --body-file linked.md'), null);

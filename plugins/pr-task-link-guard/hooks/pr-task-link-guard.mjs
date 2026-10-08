@@ -2,7 +2,8 @@
 // refuses `gh pr create` unless the PR body links a task.
 // The link may appear anywhere in the command text (an inline --body, or a
 // heredoc that writes the body file in the same command), or in the file
-// passed to --body-file, read relative to the session's working directory.
+// passed to --body-file or read by --body "$(cat file)", relative to the
+// session's working directory.
 // A PR passes anyway when PR_TASK_LINK_GUARD_ALLOW=1 sits directly before gh pr create.
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -185,6 +186,25 @@ const valueOf = (args, short, long) => {
   return undefined;
 };
 
+// The word that holds --body's value: --body X, -b X or --body=X.
+function bodyWord(words) {
+  for (let k = 1; k < words.length; k++) {
+    const t = words[k].text;
+    if (t === '-b' || t === '--body') return words[k + 1];
+    if (t.startsWith('--body=')) return { text: t.slice(7), raw: words[k].raw.replace(/^--body=/, '') };
+  }
+  return undefined;
+}
+
+// A body written "$(cat body.md)" comes from a file: the file's path, else undefined.
+function catFile(word) {
+  if (word?.text !== '$') return undefined;
+  const m = /^\$\(([\s\S]*)\)$|^`([\s\S]*)`$/.exec(word.raw);
+  const segs = m ? parse(m[1] ?? m[2]) : [];
+  const w = segs.length === 1 ? segs[0].words.map((x) => x.text) : [];
+  return w.length === 2 && w[0] === 'cat' ? w[1] : undefined;
+}
+
 // Collects every `gh pr create` in the command, with the cwd it runs in.
 function findCreates(segs, ctx, depth, out) {
   if (depth > 10) return out;
@@ -209,7 +229,7 @@ function findCreates(segs, ctx, depth, out) {
         cwd: ctx.cwd,
         web: args.includes('--web') || args.includes('-w'),
         repo: valueOf(args, '-R', '--repo') ?? envRepo,
-        bodyFile: valueOf(args, '-F', '--body-file'),
+        bodyFile: valueOf(args, '-F', '--body-file') ?? catFile(bodyWord(seg.words.slice(i))),
       });
     }
   }
@@ -230,9 +250,13 @@ function remoteSlugs(cwd) {
 }
 
 function readBody(cwd, file) {
-  if (!file || file === '-' || file.includes('$')) return '';
+  // $PWD is the folder the command runs in and $HOME is known; other variables are not.
+  const path = file
+    ?.replace(/\$(?:\{PWD\}|PWD(?![A-Za-z0-9_]))/g, () => cwd)
+    .replace(/\$(?:\{HOME\}|HOME(?![A-Za-z0-9_]))/g, () => homedir());
+  if (!path || path === '-' || path.includes('$')) return '';
   try {
-    return readFileSync(resolvePath(cwd, file), 'utf8').slice(0, 1 << 20);
+    return readFileSync(resolvePath(cwd, path), 'utf8').slice(0, 1 << 20);
   } catch {
     return '';
   }
@@ -268,7 +292,7 @@ export function decide(input, env = process.env) {
       deny:
         `pr-task-link-guard blocked gh pr create: the PR body has no task link (it must match /${cfg.pattern}/i). ` +
         'Find or create the task, put its link in the body (--body, or the file passed to --body-file), then run gh pr create again. ' +
-        'A --body-file path that uses a shell variable cannot be read here, so write the literal path. ' +
+        'A body file whose path uses a shell variable other than $PWD or $HOME cannot be read here, so write the literal path. ' +
         `Only if the user said this PR has no task, write ${ALLOW}=1 directly before gh pr create, not before cd or an earlier command in the chain.`,
     };
   }

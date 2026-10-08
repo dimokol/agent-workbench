@@ -389,6 +389,44 @@ out=$(jq -nc --arg d "$T/conf" '{cwd: $d, tool_input: {command: "git push origin
   INTEGRATION_BRANCH_QA_INTEGRATION_BRANCH=qa-env "$BASH_BIN" "$GUARD")
 has "an env var wins over .qa/config in the guard too" "$out" '"deny"'
 
+echo "# guard: quotes, paths with spaces, heredocs"
+SP="$T/my projects/shop"
+mkdir -p "$T/my projects"
+git clone -q "$T/remote.git" "$SP"
+(cd "$SP" && "$BASH_BIN" "$QA" init >/dev/null && git checkout -q -b qa-integration && "$BASH_BIN" "$QA" owner Dana >/dev/null)
+denied "cd to a quoted path with a space, then checkout" / "cd \"$SP\" && git checkout main"
+denied "cd to a quoted path with a space, then reset --hard" / "cd \"$SP\" && git reset --hard"
+denied "cd to a quoted path with a space, then push" / "cd \"$SP\" && git push origin qa-integration"
+denied "git -C with a quoted path with a space: checkout" / "git -C \"$SP\" checkout main"
+denied "git -C with a quoted path with a space: push" / "git -C \"$SP\" push origin qa-integration"
+denied "cd to a path with an escaped space" / "cd $(printf '%s' "$SP" | sed 's/ /\\ /g') && git checkout main"
+denied "bash -c with a quoted path inside" / "bash -c 'cd \"$SP\" && git push origin qa-integration'"
+allowed "a heredoc body is data" "$SP" "cat > notes.md <<'EOF'
+- git switch to the branch and open /cart
+EOF"
+allowed "an unquoted heredoc body is data" "$SP" "cat > notes.md <<EOF
+git checkout main
+EOF
+echo done"
+allowed "a commit message from a heredoc inside \$(...)" "$SP" "git commit -m \"\$(cat <<'EOF'
+git checkout main is no longer needed
+EOF
+)\""
+allowed "a separator inside quotes is text" "$SP" "echo 'done; git checkout main'"
+denied "a heredoc a shell reads is commands" "$SP" "bash <<'EOF'
+git push origin qa-integration
+EOF"
+denied "a command after a heredoc is still read" "$SP" "cat > notes.md <<'EOF'
+notes
+EOF
+git checkout main"
+denied "a push inside \$(...) in double quotes" "$SP" "echo \"\$(git push origin qa-integration)\""
+denied "the current branch from \$(...) in double quotes" "$SP" "git push -u origin \"\$(git branch --show-current)\""
+allowed "the override reaches into bash -c" "$SP" "QA_BRANCH_ALLOW=1 bash -c 'git checkout main'"
+denied "a multi-line bash -c script" "$SP" "bash -c 'echo start
+git push origin qa-integration'"
+denied "eval of a quoted command" "$SP" "eval \"git push origin qa-integration\""
+
 mkdir "$T/nojq"
 for t in cat sed head; do ln -s "$(command -v "$t")" "$T/nojq/$t"; done
 in=$(jq -nc --arg d "$W" '{session_id: "s-nojq", cwd: $d, tool_input: {command: "git push origin qa-integration"}}')

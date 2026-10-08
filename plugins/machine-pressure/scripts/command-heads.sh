@@ -7,7 +7,8 @@
 # a command is dropped first: heredoc bodies and single or double quoted text.
 # Leading VAR=val assignments and transparent wrappers (nohup, env, cross-env,
 # time, nice, command, exec, timeout N) are skipped, so `nohup env X=1 npm test`
-# reads as npm.
+# reads as npm. A command whose leading assignments include PRESSURE_ALLOW=1
+# keeps that word in front of its line.
 #
 # Why: matching the raw command text blocks harmless commands, such as a PR
 # body that mentions "e2e", `ps | grep jest`, or `cat jest.config.js`.
@@ -36,8 +37,9 @@ command_heads() {
       n = split(line, seg, /(\|\||&&|;|\||\$\(|\()/)
       for (i = 1; i <= n; i++) {
         m = split(seg[i], w, /[ \t]+/)
-        j = 1
+        j = 1; allow = 0
         while (j <= m) {
+          if (w[j] == "PRESSURE_ALLOW=1") allow = 1
           if (w[j] == "" || w[j] ~ /^[A-Za-z_][A-Za-z0-9_]*=/) { j++; continue }
           if (w[j] ~ /^(nohup|env|cross-env|time|nice|command|exec)$/) { j++; continue }
           if (w[j] == "sudo") { j++; while (j <= m && w[j] ~ /^-/) { if (w[j] ~ /^-[ugUChprtDT]$/) j++; j++ }; continue }
@@ -48,9 +50,11 @@ command_heads() {
         head = w[j]
         out = head
         if (head ~ /^(python[0-9.]*|\.\/gradlew|gradlew)$/ || head ~ /^(npm|npx|pnpm|yarn|bun|bunx|node|cargo|go|turbo|make|mvn|gradle|docker|docker-compose|sh|bash|zsh)$/) {
-          for (k = j + 1; k <= m && k <= j + 5; k++) out = out " " w[k]
+          # docker compose takes options such as -f a.yml -f b.yml before its subcommand.
+          lim = (head ~ /^docker/) ? 9 : 5
+          for (k = j + 1; k <= m && k <= j + lim; k++) out = out " " w[k]
         }
-        print out
+        print (allow ? "PRESSURE_ALLOW=1 " : "") out
       }
     }'
 }

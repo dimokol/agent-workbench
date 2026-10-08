@@ -8,7 +8,7 @@ description: Takes open GitHub PRs to READY. Asks the reviewer once, fixes or an
 Take open GitHub PRs from "ready for review" to READY, then stop and report. This session asks the reviewer
 once and watches; one background agent per PR does the work. Nothing merges without `--merge`.
 
-`/pr-review-loop <pr> [<pr> ...] [--merge] [--double-review]`. A `<pr>` is a number or a PR URL.
+`/pr-review-loop:pr-review-loop <pr> [<pr> ...] [--merge] [--double-review]` when installed as a plugin, `/pr-review-loop ...` when the skill is copied into a skills folder. A `<pr>` is a number or a PR URL.
 `--merge` merges READY PRs at the end, only when the user asked for a merge in this run ("finalize" is not
 that ask). `--double-review` also self-reviews every PR; without it, self-review runs only while the reviewer is silent.
 

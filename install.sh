@@ -5,7 +5,8 @@
 #
 #   install.sh --list               list the parts
 #   install.sh <part> [<part>...]   install parts
-#   install.sh --force <part>       replace a skill folder that already exists (old one is kept as .bak)
+#   install.sh --force <part>       replace a skill folder that already exists (the old one moves to
+#                                   <skills folder>-backup/, next to it)
 #
 # Skills are copied into $SKILLS_DIR (default ~/.claude/skills; for Codex use ~/.codex/skills).
 # Hook and MCP parts are copied into $PARTS_DIR (default ~/.claude/parts/<part>) and the script
@@ -57,7 +58,14 @@ install_part() {
         echo "  skill $name: $dest exists, skipped (use --force to replace it)"
         continue
       fi
-      [ -e "$dest" ] && mv "$dest" "$dest.bak.$(date +%Y%m%d%H%M%S)"
+      if [ -e "$dest" ]; then
+        # Next to the skills folder, not in it: an agent would load the old copy as a second skill.
+        bak="${SKILLS_DIR%/}-backup/$name.$(date +%Y%m%d%H%M%S)"
+        [ -e "$bak" ] && bak="$bak.$$.$RANDOM"
+        mkdir -p "${SKILLS_DIR%/}-backup"
+        mv "$dest" "$bak"
+        echo "  skill $name: old copy moved to $bak"
+      fi
       cp -R "$s" "$dest"
       echo "  skill $name -> $dest"
     done

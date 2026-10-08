@@ -12,73 +12,73 @@
     {
       "name": "git-guardrails",
       "source": "./plugins/git-guardrails",
-      "description": "Agents can't merge PRs, push to protected branches, delete remote branches or run reset --hard unless you said so.",
+      "description": "Stops agents from merging PRs, pushing to protected branches, deleting remote branches or destroying git history unless you said so.",
       "category": "guardrails"
     },
     {
       "name": "pr-task-link-guard",
       "source": "./plugins/pr-task-link-guard",
-      "description": "gh pr create is refused when the PR body has no link to a task.",
+      "description": "Refuses gh pr create unless the PR body links a task on your task board.",
       "category": "guardrails"
     },
     {
       "name": "machine-pressure",
       "source": "./plugins/machine-pressure",
-      "description": "One e2e or Docker run at a time, no heavy commands while the machine is in the red, plus a statusline script you add by hand.",
+      "description": "Refuses a second e2e or docker run, and any heavy command while CPU, memory or disk pressure is RED, plus a statusline script you add by hand.",
       "category": "machine"
     },
     {
       "name": "context-nudge",
       "source": "./plugins/context-nudge",
-      "description": "A one-line nudge when a session passes 250k, 400k and 600k tokens of context, or after an hour idle at 150k or more.",
+      "description": "A one-line nudge to compact or start fresh when a session's context passes 250k, 400k and 600k tokens, or after an hour idle at 150k or more.",
       "category": "machine"
     },
     {
       "name": "worktree-hygiene",
       "source": "./plugins/worktree-hygiene",
-      "description": "An audit to run at session start: merged worktrees, idle dependency folders, orphaned dev servers and free disk.",
+      "description": "A read-only audit to run at session start: free disk, merged-PR worktrees, idle dependency folders and orphaned dev servers. Proposes removals, never deletes.",
       "category": "machine"
     },
     {
       "name": "storage-reclaim",
       "source": "./plugins/storage-reclaim",
-      "description": "Disk cleanup that measures first and won't touch files a process or session is using. macOS.",
+      "description": "Disk cleanup for macOS that measures first, refuses to touch what a process or another session uses, and frees space in tiers you approve one by one.",
       "category": "machine"
     },
     {
       "name": "agent-chat",
       "source": "./plugins/agent-chat",
-      "description": "Chat rooms for agents in different terminals, as a zero-dependency MCP server.",
+      "description": "Shared chat rooms for agents in separate terminals (Claude Code, Codex, any MCP client): create_room, list_rooms, post, wait, history. No dependencies.",
       "category": "coordination"
     },
     {
       "name": "verify-before-building",
       "source": "./plugins/verify-before-building",
-      "description": "Fetches and checks the trunk before you branch, so nobody rebuilds what already merged.",
+      "description": "Before you start a branch, fetch and check whether the trunk already has the feature, so merged work isn't rebuilt.",
       "category": "shipping"
     },
     {
       "name": "pr-review-loop",
       "source": "./plugins/pr-review-loop",
-      "description": "Asks the reviewer once, applies or answers every finding, reruns your checks, stops when the PR is ready.",
+      "description": "Takes open GitHub PRs to approved and mergeable: asks the reviewer once, fixes or answers each finding, reruns your checks, merges only when you ask.",
       "category": "shipping"
     },
     {
       "name": "integration-branch-qa",
       "source": "./plugins/integration-branch-qa",
-      "description": "Test several approved PRs at once on one local branch that never gets pushed.",
+      "description": "Test several approved PRs at once on one local integration branch, with a queue, a clickable checklist, a merge gate and a guard hook.",
       "category": "shipping"
     },
     {
       "name": "e2e-harness-patterns",
       "source": "./plugins/e2e-harness-patterns",
-      "description": "A local e2e stack per worktree, so several agents can run end-to-end tests side by side.",
+      "description": "Patterns for a local end-to-end test harness that several agents can run in parallel: one stack per worktree, seeded data, Playwright, affected-only runs.",
       "category": "shipping"
     },
     {
       "name": "setup-audit",
       "source": "./plugins/setup-audit",
-      "description": "A weekly read of the Claude Code changelog plus your own drift checks, written to a log.",
+      "description": "A weekly audit of your Claude Code setup: new changelog entries, community tool changes, and your own drift checks, logged and never applied.",
       "category": "upkeep"
     }
   ]

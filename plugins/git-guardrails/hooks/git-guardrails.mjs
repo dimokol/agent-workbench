@@ -4,7 +4,7 @@
 // pushes to protected branches, remote branch deletion and history-destroying
 // git. A blocked command passes when GIT_GUARDRAILS_ALLOW=1 sits directly before it.
 // It is a speed bump against mistakes: scripts and git aliases go unseen.
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir, tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
@@ -211,6 +211,8 @@ function checkSegment(seg, ctx, depth) {
   const args = seg.words.slice(i);
   const name = basename(args[0]?.text ?? '');
   const inner = { ...ctx, allow };
+  // `B=main; git push origin "$B"`: a bare assignment sets what later commands expand.
+  if (!args.length || name === 'export') remember(args.length ? args.slice(1).map((w) => w.text) : assigns, ctx.vars);
   if (name === 'cd' || name === 'pushd') {
     if (args[1]?.text !== '-') ctx.cwd = resolvePath(ctx.cwd, args[1]?.text ?? '~');
     return null;
@@ -233,6 +235,34 @@ function checkSegment(seg, ctx, depth) {
   if (name === 'gh') return checkGh(args.slice(1), seg, ctx);
   if (name === 'curl' && args.some((a) => a.text.includes('api.github.com'))) return checkApi(args.slice(1), seg, ctx, CURL_FLAGS);
   return null;
+}
+
+function remember(assigns, vars) {
+  for (const a of assigns) {
+    const [, name, value] = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/s.exec(a) ?? [];
+    if (!name) continue;
+    if (value.includes(MARK)) vars.delete(name);
+    else vars.set(name, value);
+  }
+}
+
+// Fills in each $NAME or ${NAME} that an earlier NAME=literal in the same command set.
+function expand(w, vars) {
+  if (!w.vars.length || !vars.size) return w;
+  const parts = w.text.split(MARK);
+  const left = [];
+  let text = parts[0];
+  w.vars.forEach((v, k) => {
+    const m = /^\$(?:([A-Za-z_][A-Za-z0-9_]*)|\{([A-Za-z_][A-Za-z0-9_]*)\})$/.exec(v);
+    const name = m && (m[1] ?? m[2]);
+    if (name && vars.has(name)) text += vars.get(name);
+    else {
+      text += MARK;
+      left.push(v);
+    }
+    text += parts[k + 1];
+  });
+  return { ...w, text, vars: left };
 }
 
 const resolvePath = (base, p) => (p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : resolve(base, p));
@@ -273,8 +303,9 @@ const protectedWhy = (b) => `${b} is a protected branch, and changing it needs t
 
 const GIT_VALUE_OPTS = ['-c', '--git-dir', '--work-tree', '--namespace', '--config-env'];
 
-function checkGit(argv, ctx) {
+function checkGit(words, ctx) {
   const cfg = ctx.config;
+  const argv = words.map((w) => expand(w, ctx.vars));
   let dir = ctx.cwd;
   let i = 0;
   for (; i < argv.length && argv[i].text.startsWith('-'); i++) {
@@ -295,11 +326,11 @@ function checkGit(argv, ctx) {
     return isProtected(b, cfg) ? deny(`git merge while ${b} is checked out`, protectedWhy(b)) : null;
   }
   if (verb === 'checkout' || verb === 'switch') {
+    // Later commands in the line run on the branch this one leaves checked out:
     // `git checkout main && git merge x` merges into main, though main isn't checked out yet.
-    const k = t.findIndex((a) => /^-[bBcC]$/.test(a));
-    const pos = t.filter((a) => !a.startsWith('-'));
-    const target = k >= 0 ? t[k + 1] : !t.includes('--') && pos.length === 1 ? pos[0] : null;
-    if (isProtected(target, cfg)) ctx.onBranch.set(dir, target);
+    const target = checkoutTarget(verb, rest, dir, cfg);
+    if (target === undefined) ctx.onBranch.delete(dir); // can't tell, so ask git
+    else if (target !== KEEP) ctx.onBranch.set(dir, target);
     return null;
   }
   if (!cfg.blockDestructive) return null;
@@ -311,6 +342,33 @@ function checkGit(argv, ctx) {
   const stash = t.find((a) => !a.startsWith('-'));
   if (verb === 'stash' && (stash === 'drop' || stash === 'clear')) return deny(`git stash ${stash}`, LOSES);
   return null;
+}
+
+const KEEP = Symbol('only files change');
+
+// Where a checkout or switch leaves HEAD: a branch name, null when detached,
+// undefined when the hook can't tell, or KEEP when it only restores files.
+function checkoutTarget(verb, words, dir, cfg) {
+  const pos = [];
+  let track = false;
+  for (let k = 0; k < words.length; k++) {
+    const a = words[k].text;
+    const made = /^(?:-[bBcC]|--orphan|--create|--force-create)(?:=(.*))?$/s.exec(a);
+    if (made) {
+      const name = made[1] ?? words[k + 1]?.text;
+      return name && !name.includes(MARK) ? name : undefined;
+    }
+    if (a === '--detach' || (verb === 'switch' && a === '-d')) return null;
+    if (a === '--' || a === '-p' || a === '--patch' || a.startsWith('--pathspec-from-file')) return KEEP;
+    if (a === '-t' || a.startsWith('--track')) track = true;
+    else if (a === '-' || !a.startsWith('-')) pos.push(a);
+  }
+  if (pos.length !== 1) return KEEP; // `git checkout main file.txt` restores a file
+  if (pos[0] === '-' || pos[0].includes(MARK)) return undefined;
+  const name = track ? pos[0].replace(/^[^/]+\//, '') : pos[0]; // -t origin/x creates x
+  // git reads `git checkout notes.md` as a file restore unless a ref has that name.
+  if (verb === 'checkout' && !isProtected(name, cfg) && existsSync(resolve(dir, pos[0]))) return KEEP;
+  return name;
 }
 
 function checkPush(argv, branch, cfg) {
@@ -432,7 +490,7 @@ function checkApi(argv, seg, ctx, flags) {
 // Returns the deny reason, or null when the command may run.
 export function check(command, { cwd = process.cwd(), config = loadConfig() } = {}) {
   try {
-    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map() }, 0);
+    return walk(parse(command), { cwd, config, allow: false, onBranch: new Map(), vars: new Map() }, 0);
   } catch (err) {
     if (err !== TOO_DEEP) throw err;
     return deny('a command nested too deeply to check', `past ${MAX_DEPTH} levels of $(...), sh -c or eval the hook stops reading.`);

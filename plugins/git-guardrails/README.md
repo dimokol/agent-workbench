@@ -1,6 +1,6 @@
 # git-guardrails
 
-Your agents can't merge PRs, push to protected branches, delete remote branches or run history-destroying git until you say so.
+Your agents can't merge PRs, push to protected branches, delete remote branches or run `reset --hard`, `clean -f`, `branch -D` or `stash drop` until you say so. Force pushes to branches that aren't protected pass unless strict is on.
 
 A `PreToolUse` hook reads each Bash command the way a shell would (quotes, line continuations, `$(...)`, heredocs, `sh -c`) and denies the risky ones with a reason the agent can act on. Treat it as a speed bump against mistakes, and don't rely on it as a sandbox: a script or a git alias goes unseen. Turn on `strict` if you can: the agent then has to ask before anything leaves your machine.
 
@@ -25,6 +25,9 @@ To let one approved command through, the agent writes `GIT_GUARDRAILS_ALLOW=1` d
 
 ## Turn it off
     claude plugin disable git-guardrails@dimokol
+
+## See also
+[mattpocock/skills](https://github.com/mattpocock/skills) has a git-guardrails skill with the same aim.
 
 ## Requirements
 Node 18 or newer on `PATH` (without it, commands pass and the hook says so once per session) and `git`. Tested on macOS. The Linux code paths exist but haven't been run on Linux yet. Tests: `node --test tests/*.test.mjs` from this folder.

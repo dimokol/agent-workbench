@@ -11,10 +11,11 @@
 #   - AMBER pressure: the command runs, with a warning added to the context.
 #
 # Fails open: a missing tool, an unreadable probe or an unknown platform allows
-# the command. Override a single command with a leading PRESSURE_ALLOW=1.
+# the command. Override one command with PRESSURE_ALLOW=1 directly before it
+# (cd app && PRESSURE_ALLOW=1 npm run build), or at the start of the whole line.
 #
 # Settings (CLAUDE_PLUGIN_OPTION_<KEY>, else MACHINE_PRESSURE_<KEY>, else default):
-#   MAX_PARALLEL_HEAVY (1), EXTRA_HEAVY_PATTERNS (empty).
+#   MAX_PARALLEL_HEAVY (1), EXTRA_HEAVY_PATTERNS (empty), IGNORE_RUNNING_PATTERNS (empty).
 # Test hooks: MACHINE_PRESSURE_DEBUG=1 prints the class and stops;
 #   PRESSURE_PROBE points at another probe script.
 
@@ -50,7 +51,7 @@ input=$(cat 2>/dev/null) || exit 0
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null)
 [ -n "$cmd" ] || exit 0
 
-# Override: PRESSURE_ALLOW=1 must be one of the leading VAR=value words.
+# Override for the whole line: PRESSURE_ALLOW=1 among its leading VAR=value words.
 has_override() {
   rest=$1
   while :; do
@@ -75,20 +76,34 @@ has_override "$cmd" && exit 0
 . "$HEADS_LIB"
 heads=$(command_heads "$cmd")
 
-extra=$(cfg extra_heavy_patterns "")
-case $extra in
-  \[*) extra=$(printf '%s' "$extra" | jq -r '.[]' 2>/dev/null) || extra="" ;;
-  *) extra=$(printf '%s' "$extra" | tr ',' '\n') ;;
-esac
+patterns() { # key: one regex per line, from a JSON array or a comma list
+  _p=$(cfg "$1" "")
+  case $_p in
+    \[*) printf '%s' "$_p" | jq -r '.[]' 2>/dev/null ;;
+    *) printf '%s' "$_p" | tr ',' '\n' ;;
+  esac
+}
+extra=$(patterns extra_heavy_patterns)
 
+# Only compose subcommands that start or build containers are heavy. The rest
+# (exec, logs, ps, down, cp ...) read, attach or free memory.
 compose_kind() { # words of a docker compose line
-  for w in $1; do
-    case $w in up|build|run|create|start|restart|pull|watch) echo heavy; return ;; esac
+  set -- $1
+  shift
+  [ "${1:-}" = compose ] && shift
+  while [ $# -gt 0 ]; do
+    case $1 in
+      -f|--file|-p|--project-name|--profile|--env-file|--project-directory|--ansi|--progress|--parallel)
+        shift; [ $# -gt 0 ] && shift ;;
+      -*) shift ;;
+      *) break ;;
+    esac
   done
-  for w in $1; do
-    case $w in down|stop|kill|ps|logs|ls|config|rm|images|port|top|version|events) echo light; return ;; esac
-  done
-  echo heavy
+  case ${1:-} in
+    '') echo heavy ;; # the line was cut off before the subcommand
+    up|build|run|create|start|restart|pull|watch|scale) echo heavy ;;
+    *) echo light ;;
+  esac
 }
 
 classify_line() {
@@ -107,19 +122,24 @@ classify_line() {
     "pytest"*|"python -m pytest"*|"python3 -m pytest"*|"python"[0-9.]*" -m pytest"*|"cargo test"*|"go test"*) echo tests; return ;;
     "turbo "*" test"*|"make test"*|"make "*" test"*|"mvn "*test*|"gradle "*test*|"./gradlew "*test*|"gradlew "*test*) echo tests; return ;;
   esac
+  query=""
   case "$1" in
     "npm "*|"pnpm "*|"yarn "*|"bun "*)
       case "$1" in
-        *" view "*|*" info "*|*" search "*|*" why "*|*" help "*|*" ls "*|*" add "*|*" remove "*|*" uninstall "*) ;;
+        # Asking about a package, or removing one, runs nothing.
+        *" view "*|*" info "*|*" search "*|*" why "*|*" explain "*|*" help "*|*" ls "*|*" add "*|*" remove "*|*" uninstall "*) query=1 ;;
         *" build"|*" build "*|*" build:"*) echo build; return ;;
+        *" e2e"|*" e2e "*|*" e2e:"*) echo e2e; return ;;
       esac ;;
   esac
-  case "$1" in
-    "npm "*|"npx "*|"pnpm "*|"yarn "*|"bun "*|"bunx "*|"node "*|vitest*|jest*)
-      case "$1" in
-        *vitest*|*jest*|*"test:affected"*|*" test"|*" test "*) echo tests; return ;;
-      esac ;;
-  esac
+  if [ -z "$query" ]; then
+    case "$1" in
+      "npm "*|"npx "*|"pnpm "*|"yarn "*|"bun "*|"bunx "*|"node "*|vitest*|jest*)
+        case "$1" in
+          *vitest*|*jest*|*"test:affected"*|*" test"|*" test "*) echo tests; return ;;
+        esac ;;
+    esac
+  fi
   if [ -n "$extra" ]; then
     printf '%s\n' "$extra" | while IFS= read -r p; do
       [ -n "$p" ] && printf '%s\n' "$1" | grep -Eq -- "$p" && { echo heavy; break; }
@@ -128,10 +148,10 @@ classify_line() {
 }
 
 # First heavy command in a chain wins, so a light command earlier in the chain
-# cannot hide a heavy one after it.
+# cannot hide a heavy one after it. A command with its own PRESSURE_ALLOW=1 passes.
 class=""
 while IFS= read -r line; do
-  [ -n "$line" ] || continue
+  case $line in ''|"PRESSURE_ALLOW=1 "*) continue ;; esac
   c=$(classify_line "$line")
   if [ -n "$c" ]; then class=$c; break; fi
 done <<EOF_HEADS
@@ -148,22 +168,45 @@ fi
 # process whose parent also matches belongs to the same run and is not counted.
 pat=""; xpat=""
 case $class in
-  e2e)     pat='playwright test|cypress run|test:e2e|e2e:up|e2e[.]sh'; xpat='playwright[.]unit|test:unit' ;;
-  docker)  pat='docker[ -]compose.* (up|build|run|create|pull|start|restart)( |$)|docker (buildx )?build|docker buildx|docker run' ;;
+  e2e)     pat='playwright test|cypress run|test:e2e|e2e:up|e2e[.]sh|(npm|pnpm|yarn|bun)( run)? e2e( |:|$)'
+           xpat='playwright[.]unit|test:unit|e2e:(down|status|reset|stop)' ;;
+  # A compose line counts by its subcommand (the heavy list in compose_kind), read past
+  # global options, so `docker compose exec app npm run build` is not a run.
+  docker)  pat='docker[ -]compose( compose)?( +-[^ ]+( +[^ -][^ ]*)?)* +(up|build|run|create|start|restart|pull|watch|scale)( |$)|docker (buildx )?build|docker buildx|docker run' ;;
   install) pat='npm (install|ci)|npm i( |$)|pnpm (install|i)( |$)|yarn install|bun install|yarn$' ;;
   build)   pat='npm run build|pnpm (run )?build|yarn build|next build|tsc (--build|-b)|cargo build|vite build|turbo (run )?build|mvn .*package|gradlew? .*build' ;;
   tests)   pat='vitest|jest|npm test|npm run test|pnpm test|yarn test|pytest|cargo test|go test|turbo (run )?test|mvn .*test|gradlew? .*test' ;;
 esac
+# Processes matching ignore_running_patterns never count, joined into one regex.
+ignore=$(patterns ignore_running_patterns | awk 'NF { printf "%s(%s)", (n++ ? "|" : ""), $0 }')
 running=0
 if [ -n "$pat" ]; then
   procs=$(ps -A -o pid=,ppid=,command= 2>/dev/null)
-  n=$(printf '%s\n' "$procs" | awk -v pat="$pat" -v skip="$xpat" '
+  n=$(printf '%s\n' "$procs" | IGNORE="$ignore" awk -v pat="$pat" -v skip="$xpat" '
+    # A docker run with -i and no tty talks over stdin and stdout: a stdio MCP server
+    # that lives as long as its session, not a run.
+    function stdio_run(cmd,   w, n, i, x, inter, tty) {
+      n = split(cmd, w, /[ \t]+/)
+      for (i = 2; i <= n && !(w[i] == "run" && w[i - 1] ~ /(^|\/)docker$/); i++) ;
+      for (i++; i <= n; i++) {
+        x = w[i]
+        if (x !~ /^-/) break # the image
+        if (x ~ /^--interactive(=true)?$/) inter = 1
+        else if (x ~ /^--tty(=true)?$/) tty = 1
+        else if (x ~ /^-[dPqit]+$/) { if (x ~ /i/) inter = 1; if (x ~ /t/) tty = 1 }
+        else if (x ~ /^-[a-zA-Z]$/ || (x ~ /^--/ && x !~ /=/ && x !~ /^--(rm|detach|init|privileged|read-only|publish-all|no-healthcheck|oom-kill-disable|quiet|sig-proxy|disable-content-trust)$/)) i++ # its value
+      }
+      return inter && !tty
+    }
+    BEGIN { ign = ENVIRON["IGNORE"] }
     { pid = $1; ppid = $2; cmd = $0
       sub(/^[ \t]*[0-9]+[ \t]+[0-9]+[ \t]+/, "", cmd)
       split(cmd, a, " "); k = split(a[1], b, "/"); base = b[k]
       if (base ~ /^(grep|egrep|rg|pgrep|ps|tail|less|cat|vi|vim|nano|git|awk|sed)$/) next
       if (cmd !~ pat) next
       if (skip != "" && cmd ~ skip) next
+      if (ign != "" && cmd ~ ign) next
+      if (cmd ~ /docker run/ && stdio_run(cmd)) next
       hit[pid] = 1; par[pid] = ppid }
     END { c = 0; for (p in hit) if (!(par[p] in hit)) c++; print c }' 2>/dev/null)
   case $n in ''|*[!0-9]*) n=0 ;; esac
@@ -174,10 +217,13 @@ max=$(cfg max_parallel_heavy 1)
 case $max in ''|*[!0-9]*) max=1 ;; esac
 [ "$max" -ge 1 ] || max=1
 
-pj=$(sh "$PROBE" --json 2>/dev/null)
+# The probe reads free disk where it runs, so run it in the session's folder.
+dir=$(printf '%s' "$input" | jq -r '.cwd // ""' 2>/dev/null)
+case $PROBE in /*) ;; *) PROBE=$PWD/$PROBE ;; esac
+pj=$(cd "${dir:-.}" 2>/dev/null; sh "$PROBE" --json 2>/dev/null)
 level=$(printf '%s' "$pj" | jq -r '.level // "UNKNOWN"' 2>/dev/null); level=${level:-UNKNOWN}
 summary=$(printf '%s' "$pj" | jq -r 'def v(x): if x == null then "n/a" else (x|tostring) end;
-  "CPU \(v(.cpu_pct))%, RAM \(v(.ram_pct))%, swap \(v(.swap_pct))%, load \(v(.load1)), disk \(v(.disk_free_gb)) GB free"' 2>/dev/null)
+  "CPU \(v(.cpu_pct))%, RAM \(v(.ram_pct))%\(if .mem_pressure then " (memory pressure \(.mem_pressure))" else "" end), swap \(v(.swap_pct))%, load \(v(.load1)), disk \(v(.disk_free_gb)) GB free"' 2>/dev/null)
 [ -n "$summary" ] || summary="no machine reading"
 
 emit() { # deny|warn, message
@@ -186,7 +232,7 @@ emit() { # deny|warn, message
   exit 0
 }
 
-tip="To run it anyway, put PRESSURE_ALLOW=1 in front of the command."
+tip="To run it anyway, put PRESSURE_ALLOW=1 directly before the heavy command, after any cd (cd app && PRESSURE_ALLOW=1 npm run build). Each heavy command in a chain needs its own."
 
 if { [ "$class" = e2e ] || [ "$class" = docker ]; } && [ "$running" -ge "$max" ]; then
   emit deny "Blocked: $running $class run(s) already active, and the limit is $max (max_parallel_heavy). Another session or terminal is using the machine for the same job. Wait for it to finish, then retry. Machine: $summary. $tip"

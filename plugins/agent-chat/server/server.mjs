@@ -23,16 +23,21 @@ const MAX_MSG = 200_000 // chars
 const MAX_TITLE = 200
 const DEFAULT_WAIT_S = 55 // stays under Codex's 60s default tool timeout
 const MAX_WAIT_S = 3600
+const HISTORY_LIMIT = 50 // a whole room can run to megabytes
 const FALLBACK_SCAN_MS = 1500
+// Chats can hold code and anything pasted into them: only the user may read them.
+const DIR_MODE = 0o700
+const FILE_MODE = 0o600
 
 // ---- helpers ---------------------------------------------------------------
 const norm = (s) => String(s ?? '').trim()
 const lc = (s) => norm(s).toLowerCase()
 const BROADCAST = new Set(['', 'all', 'everyone', 'any', '*'])
 
+// No leading dot: "." and ".." would put files outside the rooms folder.
 function validId(v, field) {
   const s = norm(v)
-  if (!/^[A-Za-z0-9._-]{1,64}$/.test(s)) throw new Error(`invalid ${field}: must match [A-Za-z0-9._-]{1,64}`)
+  if (!/^[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}$/.test(s)) throw new Error(`invalid ${field}: must match [A-Za-z0-9._-]{1,64} and not start with a dot`)
   return s
 }
 function validRecipient(v) {
@@ -47,6 +52,9 @@ function slugify(s) {
 function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
+
+const mkdirPrivate = (d) => fs.mkdirSync(d, { recursive: true, mode: DIR_MODE })
+const writePrivate = (f, data) => fs.writeFileSync(f, data, { mode: FILE_MODE })
 
 function expandHome(p) {
   const s = norm(p)
@@ -104,15 +112,15 @@ function resolveChatScope() {
 
   const centralRoot = expandHome(process.env.AGENT_CHAT_ROOT) || path.join(os.homedir(), '.agent-chat')
   const chatsRoot = path.resolve(centralRoot)
-  fs.mkdirSync(chatsRoot, { recursive: true })
+  mkdirPrivate(chatsRoot)
 
   // A name set on purpose is used as-is, with no root check and no suffix, so agents in
   // different repos that set the same AGENT_CHAT_PROJECT meet in one bucket.
   if (forcedProject) {
     const dir = path.join(chatsRoot, forcedProject)
-    fs.mkdirSync(dir, { recursive: true })
+    mkdirPrivate(dir)
     if (!readProjectMeta(dir)) {
-      fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({
+      writePrivate(path.join(dir, 'project.json'), JSON.stringify({
         id: forcedProject,
         name: forcedProject,
         project_root: projectRoot,
@@ -132,11 +140,11 @@ function resolveChatScope() {
     dir = path.join(chatsRoot, project)
   }
 
-  fs.mkdirSync(dir, { recursive: true })
+  mkdirPrivate(dir)
   const metaPath = path.join(dir, 'project.json')
   const meta = readProjectMeta(dir)
   if (!meta) {
-    fs.writeFileSync(metaPath, JSON.stringify({
+    writePrivate(metaPath, JSON.stringify({
       id: project,
       name: path.basename(projectRoot),
       project_root: projectRoot,
@@ -152,7 +160,7 @@ function resolveChatScope() {
 const SCOPE = resolveChatScope()
 const DIR = SCOPE.dir
 const ROOMS = path.join(DIR, 'rooms')
-fs.mkdirSync(ROOMS, { recursive: true })
+mkdirPrivate(ROOMS)
 
 // ---- rooms -----------------------------------------------------------------
 function roomPaths(room) {
@@ -165,9 +173,9 @@ function roomExists(room) {
 function writeRoomMeta(id, title) {
   const p = roomPaths(id)
   const created = new Date().toISOString()
-  fs.mkdirSync(p.dir, { recursive: true })
-  fs.writeFileSync(p.meta, JSON.stringify({ id, title, created }, null, 2) + '\n')
-  fs.writeFileSync(p.md, `# ${title}\n\n_room \`${id}\` · created ${created}_\n`)
+  mkdirPrivate(p.dir)
+  writePrivate(p.meta, JSON.stringify({ id, title, created }, null, 2) + '\n')
+  writePrivate(p.md, `# ${title}\n\n_room \`${id}\` · created ${created}_\n`)
   return created
 }
 function createRoom({ title, room }) {
@@ -212,7 +220,7 @@ function withLock(lockPath, fn) {
   const start = Date.now()
   for (;;) {
     try {
-      const fd = fs.openSync(lockPath, 'wx')
+      const fd = fs.openSync(lockPath, 'wx', FILE_MODE)
       heldLock = lockPath
       try { return fn() } finally { heldLock = null; fs.closeSync(fd); try { fs.unlinkSync(lockPath) } catch {} }
     } catch (e) {
@@ -253,9 +261,9 @@ function post({ room, from, to, channel, message, reply_to, title }) {
   let cursor
   withLock(p.lock, () => {
     const count = readMessages(r).length
-    fs.appendFileSync(p.jsonl, JSON.stringify(rec) + '\n')
+    fs.appendFileSync(p.jsonl, JSON.stringify(rec) + '\n', { mode: FILE_MODE })
     const tag = ch === 'main' ? '' : `[${ch}] `
-    fs.appendFileSync(p.md, '\n' + `### ${tag}${f} → ${t}  ·  ${rec.ts}  ·  id ${rec.id}` + '\n\n' + body.trimEnd() + '\n')
+    fs.appendFileSync(p.md, '\n' + `### ${tag}${f} → ${t}  ·  ${rec.ts}  ·  id ${rec.id}` + '\n\n' + body.trimEnd() + '\n', { mode: FILE_MODE })
     cursor = count + 1
   })
   return { room: r, message_id: rec.id, cursor }
@@ -400,13 +408,17 @@ const TOOLS = [
   },
   {
     name: 'history',
-    description: 'Return a room\'s transcript (every message, regardless of addressee), optionally filtered by `channel`. `room` required. Optional `limit` = most recent N. Use it to catch up when you join.',
+    description:
+      'Return a room\'s transcript (every message, regardless of addressee), oldest first, optionally filtered by `channel`. ' +
+      '`room` required. Returns the most recent `limit` messages (default 50). To page back, call it again with ' +
+      '`before_cursor` set to the cursor of the oldest message you got. Use it to catch up when you join.',
     inputSchema: {
       type: 'object',
       properties: {
         room: { type: 'string', description: 'Room id (required).' },
         channel: { type: 'string', description: 'Filter to one channel (optional).' },
-        limit: { type: 'number', description: 'Most recent N messages.' },
+        limit: { type: 'number', description: 'Most recent N messages. Default 50.' },
+        before_cursor: { type: 'number', description: 'Only messages with a cursor lower than this, to page back.' },
       },
       required: ['room'],
     },
@@ -452,7 +464,8 @@ async function handleToolCall(id, params) {
       const ch = a.channel ? validId(a.channel, 'channel') : null
       let all = readMessages(room).map(({ id: mid, from, to, channel, ts, reply_to, message, seq }) => ({ message_id: mid, from, to, channel: channel || 'main', ts, reply_to: reply_to ?? null, cursor: seq + 1, message }))
       if (ch) all = all.filter((m) => m.channel === ch)
-      const limit = Number(a.limit) > 0 ? Number(a.limit) : all.length
+      if (Number.isFinite(a.before_cursor)) all = all.filter((m) => m.cursor < a.before_cursor)
+      const limit = Number(a.limit) > 0 ? Number(a.limit) : HISTORY_LIMIT
       result(id, textResult(JSON.stringify(all.slice(-limit), null, 2)))
       return
     }
@@ -469,7 +482,7 @@ function handle(id, method, params) {
       result(id, {
         protocolVersion: (params && params.protocolVersion) || '2025-06-18',
         capabilities: { tools: {} },
-        serverInfo: { name: 'agent-chat', version: '0.4.0' },
+        serverInfo: { name: 'agent-chat', version: '0.1.0' }, // keep equal to plugin.json (a test checks)
         instructions:
           `This server is scoped to project "${SCOPE.project}" (${SCOPE.projectRoot}). ` +
           'Every room operation stays inside that project bucket. ' +

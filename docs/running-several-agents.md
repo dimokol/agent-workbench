@@ -1,8 +1,8 @@
 # Running several agents at once
 
 One agent means you wait while it works, then it waits while you read. Two to five agents means
-something is always moving. It also means agents step on each other's files, the laptop runs four
-test suites at once, and nobody knows what the agent in the next terminal decided. This page is the
+something is always moving. It also means agents step on each other's files and nobody knows what
+the agent in the next terminal decided. This page is the
 setup that keeps that manageable. Where a part of this repo helps, the step links to it.
 
 ## 1. One worktree per agent

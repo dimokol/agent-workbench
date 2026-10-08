@@ -388,6 +388,73 @@ describe('per-project buckets under AGENT_CHAT_ROOT', () => {
   })
 })
 
+describe('launch review', () => {
+  test('a room id or AGENT_CHAT_PROJECT that starts with a dot is refused', async () => {
+    const base = tmp('dots')
+    const root = path.join(base, 'root')
+    const repo = makeRepo(base, 'dot-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: root } })
+    for (const room of ['..', '.', '.hidden']) {
+      const r = await raw(C, 'post', { room, from: 'a', message: 'hi' })
+      assert.equal(r.isError, true, room)
+    }
+    const w = await raw(C, 'wait', { room: '..', me: 'a', timeout_seconds: 1 })
+    assert.equal(w.isError, true)
+    assert.equal(fs.existsSync(path.join(root, 'dot-repo', 'room.json')), false)
+    assert.equal(fs.existsSync(path.join(root, 'dot-repo', 'chat.jsonl')), false)
+
+    const P = client({ cwd: repo, env: { AGENT_CHAT_ROOT: root, AGENT_CHAT_PROJECT: '..' } })
+    await exited(P.proc)
+    assert.notEqual(P.proc.exitCode, 0)
+    assert.equal(fs.existsSync(path.join(base, 'project.json')), false)
+    assert.equal(fs.existsSync(path.join(base, 'rooms')), false)
+  })
+
+
+
+
+  test('folders are private to the user (0700) and files too (0600)', async () => {
+    const base = tmp('modes')
+    const root = path.join(base, 'root')
+    const repo = makeRepo(base, 'mode-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: root } })
+    await tool(C, 'create_room', { title: 'Private', room: 'r' })
+    await tool(C, 'post', { room: 'r', from: 'a', message: 'secret' })
+    await tool(C, 'post', { room: 'lazy', from: 'a', message: 'made on first post' })
+    const mode = (p) => fs.statSync(p).mode & 0o777
+    for (const d of [root, path.join(root, 'mode-repo'), path.join(root, 'mode-repo', 'rooms'), path.join(root, 'mode-repo', 'rooms', 'r'), path.join(root, 'mode-repo', 'rooms', 'lazy')]) {
+      assert.equal(mode(d), 0o700, d)
+    }
+    for (const f of ['project.json', 'rooms/r/room.json', 'rooms/r/chat.md', 'rooms/r/chat.jsonl', 'rooms/lazy/chat.jsonl']) {
+      assert.equal(mode(path.join(root, 'mode-repo', f)), 0o600, f)
+    }
+  })
+
+  test('history returns the last 50 by default and pages back with before_cursor', async () => {
+    const base = tmp('page')
+    const repo = makeRepo(base, 'page-repo')
+    const C = await start({ cwd: repo, env: { AGENT_CHAT_ROOT: path.join(base, 'root') } })
+    for (let i = 1; i <= 60; i++) await tool(C, 'post', { room: 'long', from: 'a', message: `m${i}` })
+    const last = await tool(C, 'history', { room: 'long' })
+    assert.equal(last.length, 50)
+    assert.equal(last[0].cursor, 11)
+    assert.equal(last.at(-1).message, 'm60')
+    const older = await tool(C, 'history', { room: 'long', before_cursor: last[0].cursor })
+    assert.deepEqual(older.map((m) => m.cursor), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    const five = await tool(C, 'history', { room: 'long', before_cursor: 11, limit: 5 })
+    assert.deepEqual(five.map((m) => m.cursor), [6, 7, 8, 9, 10])
+    assert.equal((await tool(C, 'history', { room: 'long', limit: 1000 })).length, 60)
+    const list = await C.rpc('tools/list', {})
+    assert.match(list.result.tools.find((t) => t.name === 'history').description, /before_cursor/)
+  })
+
+  test('the server reports the version in plugin.json', async () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(HERE, '..', '.claude-plugin', 'plugin.json'), 'utf8'))
+    const C = await start({ env: { AGENT_CHAT_DIR: tmp('version') } })
+    assert.equal(C.serverInfo.version, manifest.version)
+  })
+})
+
 describe('call.mjs helper', () => {
   test('prints a tool result and exits 0; exits 1 on a tool error', () => {
     const base = tmp('call')
@@ -399,6 +466,10 @@ describe('call.mjs helper', () => {
     const rooms = JSON.parse(run('list_rooms'))
     assert.equal(rooms[0].room, 'from-shell')
     assert.throws(() => run('post', '{"room":"from-shell"}'), (e) => e.status === 1)
+    // The example in the README.
+    const posted = JSON.parse(run('post', '{"room":"release-plan","from":"me","message":"Ready for review"}'))
+    assert.equal(posted.room, 'release-plan')
+    assert.equal(posted.cursor, 1)
   })
 })
 
