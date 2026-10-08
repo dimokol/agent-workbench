@@ -1,0 +1,76 @@
+{
+  "version": 3,
+  "lines": [
+    [
+      {
+        "id": "model",
+        "type": "model",
+        "color": "cyan"
+      }
+    ],
+    [
+      {
+        "id": "pressure-cpu",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field cpu",
+        "preserveColors": true,
+        "timeout": 2500
+      },
+      {
+        "id": "sep1",
+        "type": "separator"
+      },
+      {
+        "id": "pressure-ram",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field ram",
+        "preserveColors": true,
+        "timeout": 2500
+      },
+      {
+        "id": "sep2",
+        "type": "separator"
+      },
+      {
+        "id": "pressure-swap",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field swap",
+        "preserveColors": true,
+        "timeout": 2500
+      },
+      {
+        "id": "sep3",
+        "type": "separator"
+      },
+      {
+        "id": "pressure-load",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field load",
+        "preserveColors": true,
+        "timeout": 2500
+      },
+      {
+        "id": "sep4",
+        "type": "separator"
+      },
+      {
+        "id": "pressure-disk",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field disk",
+        "preserveColors": true,
+        "timeout": 2500
+      },
+      {
+        "id": "sep5",
+        "type": "separator"
+      },
+      {
+        "id": "pressure-level",
+        "type": "custom-command",
+        "commandPath": "~/.claude/scripts/pressure.sh --field level",
+        "preserveColors": true,
+        "timeout": 2500
+      }
+    ]
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "name": "git-guardrails",
+  "version": "0.1.0",
+  "description": "Stops agents from merging PRs, pushing to protected branches, deleting remote branches or destroying git history unless you said so.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["git", "github", "hooks", "guardrails", "pull-requests", "multi-agent"],
+  "userConfig": {
+    "block_merges": {
+      "type": "boolean",
+      "title": "Block merges",
+      "description": "Deny gh pr merge, merges through the GitHub API (REST and GraphQL) and git merge while a protected branch is checked out.",
+      "default": true
+    },
+    "protected_branches": {
+      "type": "string",
+      "multiple": true,
+      "title": "Protected branches",
+      "description": "Branches nobody pushes to without your go. A * glob works, for example release/*.",
+      "default": ["main", "master"]
+    },
+    "block_branch_delete": {
+      "type": "boolean",
+      "title": "Block remote branch deletion",
+      "description": "Deny push --delete, empty-source refspecs, refspecs fed by an unguarded variable, --mirror, --prune and gh pr close --delete-branch.",
+      "default": true
+    },
+    "block_destructive": {
+      "type": "boolean",
+      "title": "Block history-destroying git",
+      "description": "Deny git reset --hard, git clean -f, git branch -D, git stash drop and git stash clear.",
+      "default": true
+    },
+    "strict": {
+      "type": "boolean",
+      "title": "Strict mode",
+      "description": "Also deny every git commit and git push, so the agent has to ask before anything leaves your machine.",
+      "default": false
+    }
+  }
+}

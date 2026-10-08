@@ -1,0 +1,23 @@
+{
+  "name": "worktree-hygiene",
+  "version": "0.1.0",
+  "description": "A read-only audit to run at session start: free disk, merged-PR worktrees, idle dependency folders and orphaned dev servers. Proposes removals, never deletes.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["worktrees", "disk", "cleanup", "audit", "git"],
+  "userConfig": {
+    "worktree_filter": {
+      "type": "string",
+      "title": "Worktree path filter",
+      "description": "Only audit worktrees whose path contains this text. Leave empty to audit every entry in git worktree list.",
+      "default": ""
+    },
+    "dev_server_pattern": {
+      "type": "string",
+      "title": "Dev server pattern",
+      "description": "Extended regex matched against process commands to find orphaned dev servers.",
+      "default": "next dev|vite|webpack|node --watch|nodemon"
+    }
+  }
+}

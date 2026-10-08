@@ -1,0 +1,23 @@
+{
+  "name": "pr-task-link-guard",
+  "version": "0.1.0",
+  "description": "Refuses gh pr create unless the PR body links a task on your task board.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["github", "pull-requests", "hooks", "task-tracking", "multi-agent"],
+  "userConfig": {
+    "task_link_pattern": {
+      "type": "string",
+      "title": "Task link pattern",
+      "description": "JavaScript regex, matched case-insensitively, that a task link in the PR body must match. Example: linear\\.app/[^/]+/issue/. Empty turns the check off.",
+      "default": ""
+    },
+    "repo_scope": {
+      "type": "string",
+      "title": "Repo scope",
+      "description": "Regex on the owner/repo slug. Only matching repos are checked. Empty checks every repo.",
+      "default": ""
+    }
+  }
+}

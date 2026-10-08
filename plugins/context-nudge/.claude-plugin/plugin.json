@@ -1,0 +1,14 @@
+{
+  "name": "context-nudge",
+  "version": "0.1.0",
+  "description": "A one-line nudge to compact or start fresh when a session's context passes 250k, 400k and 600k tokens, or after an hour idle at 150k or more.",
+  "author": { "name": "dimokol" },
+  "repository": "https://github.com/dimokol/agent-workbench",
+  "license": "MIT",
+  "keywords": ["hooks", "context", "tokens", "compact", "cost"],
+  "userConfig": {
+    "size_thresholds_k": { "type": "string", "title": "Size thresholds (k tokens)", "description": "Comma-separated context sizes, in thousands of tokens, that each trigger one nudge.", "default": "250,400,600" },
+    "idle_minutes": { "type": "number", "title": "Idle minutes", "description": "A pause this long in a large session triggers the cold-cache nudge.", "default": 60 },
+    "idle_min_context_k": { "type": "number", "title": "Idle nudge minimum (k tokens)", "description": "Sessions smaller than this never get the cold-cache nudge.", "default": 150 }
+  }
+}
